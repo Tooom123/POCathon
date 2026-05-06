@@ -13,31 +13,31 @@
 
 > **Hackathon POC — Tom Angles, 06/05/2026**
 
-FocusIsland est un jeu de productivité multijoueur : restez concentré sur votre travail, gagnez des pièces, débloquez des animaux et décorez votre île virtuelle. Rejoignez un lobby avec vos collègues, travaillez, et comparez vos îles en fin de session.
+Focus Island is a multiplayer productivity game: stay focused on your work, earn coins, unlock animals, and decorate your virtual island. Join a lobby with your teammates, get to work, and compare islands at the end of the session.
 
-L'idée n'est pas de passer du temps dans l'interface — c'est de travailler, de laisser l'app détecter votre focus automatiquement, et de revenir le soir pour voir qui a la plus belle île.
-
----
-
-## Comment ça marche
-
-1. Ouvrez le client web et entrez votre nom.
-2. Créez un lobby ou rejoignez-en un avec le code d'un ami.
-3. Travaillez. L'app détecte automatiquement si vous êtes en focus via l'onglet actif du navigateur.
-4. Chaque seconde de focus génère des pièces — achetez des animaux et des décors dans le shop.
-5. En fin de journée, visitez les îles de vos coéquipiers et comparez vos progressions.
+The idea is not to spend time in the app — it's to work, let the app detect your focus automatically, and come back at the end of the day to see who built the best island.
 
 ---
 
-## Lancement rapide
+## How it works
+
+1. Open the web client and enter your name.
+2. Create a lobby or join one with a friend's code.
+3. Work. The app automatically detects whether you're focused based on the active browser tab.
+4. Every second of focus generates coins — spend them on animals and decorations in the shop.
+5. At the end of the day, visit your teammates' islands and compare your progress.
+
+---
+
+## Quick start
 
 ```bash
-# Serveur de lobby
+# Lobby server
 cd server
 npm install
 npm start   # port 3001
 
-# Client web
+# Web client
 cd client
 npm install
 npm run dev   # port 5173
@@ -45,14 +45,14 @@ npm run dev   # port 5173
 
 ---
 
-## Fonctionnalités
+## Features
 
-- 🌍 **Monde 3D** — îles flottantes en Three.js, caméra libre, zoom, rotation automatique en focus
-- 🎨 **Biomes uniques** — 5 biomes par joueur (verdant, neige, désert, volcanique, sakura)
-- 🐾 **24 animaux** — déblocables via pièces, animations fluides
-- 🌿 **Décors** — plantes, arbres, champignons, fleurs avec revenus passifs
-- 🔥 **Focus social** — voir en temps réel qui travaille dans le lobby
-- 🗺️ **Minimap** — navigation rapide entre les îles
-- 🎵 **Musique lofi** — fade in/out automatique au démarrage du focus
-- 🌙 **Cycle jour/nuit** — basé sur le temps total de focus accumulé
-- 🏆 **Leaderboard** — classement live par temps de focus
+- 🌍 **3D world** — floating islands in Three.js, free camera, auto-rotate during focus
+- 🎨 **Unique biomes** — 5 biomes per player (verdant, snow, desert, volcanic, sakura)
+- 🐾 **24 animals** — unlockable with coins, smooth animations
+- 🌿 **Decorations** — plants, trees, mushrooms, flowers with passive income
+- 🔥 **Social focus** — see in real time who's working in the lobby
+- 🗺️ **Minimap** — quick navigation between islands
+- 🎵 **Lofi music** — automatic fade in/out when focus starts
+- 🌙 **Day/night cycle** — based on total accumulated focus time
+- 🏆 **Leaderboard** — live ranking by focus time
