@@ -1,7 +1,7 @@
-<div align="center">
+<p align="center">
   <img src="client/public/previews/animals/animal-koala.png" alt="koala" width="160" />
-  <h1>Focus Island</h1>
-</div>
+</p>
+<h1 align="center">Focus Island</h1>
 
 > **Hackathon POC — Tom & Mehdi, 06/05/2026**
 
