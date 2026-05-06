@@ -13,15 +13,22 @@ function formatTime(secs: number): string {
 }
 
 export default function HUD() {
-  const { myId, players, lobbyCode, lobbyName, coins, ownedAnimals, islandLevel, incomePerSec, setShopOpen, shopOpen, resetIsland } = useGameStore();
+  const { myId, players, lobbyCode, lobbyName, coins, ownedAnimals, islandLevel, incomePerSec, setShopOpen, shopOpen, resetIsland, tickCoins } = useGameStore();
   const me = myId ? players[myId] : null;
 
-  const sessionStartMs = useRef<number | null>(null);
-  const sessionStartISO = useRef<string | null>(null);
   const [elapsed, setElapsed] = useState(0);
-
   const [muted, setMuted] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  // Ref always reflects latest isFocusing — safe to read inside event listeners
+  const isFocusingRef = useRef(false);
+  isFocusingRef.current = !!me?.isFocusing;
+
+  // Passive income ticker
+  useEffect(() => {
+    const id = setInterval(tickCoins, 250);
+    return () => clearInterval(id);
+  }, []);
 
   // Init audio once
   useEffect(() => {
@@ -29,10 +36,10 @@ export default function HUD() {
     audio.loop = true;
     audio.volume = 0;
     audioRef.current = audio;
-    return () => { audio.pause(); };
+    return () => { audio.pause(); audioRef.current = null; };
   }, []);
 
-  // Fade in/out on focus toggle
+  // Music fade in/out with focus state
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
@@ -40,7 +47,7 @@ export default function HUD() {
       audio.play().catch(() => {});
       fadeTo(audio, 0.75, 2000);
     } else {
-      fadeTo(audio, 0, 1500, () => audio.pause());
+      fadeTo(audio, 0, 1500, () => { audioRef.current?.pause(); });
     }
   }, [me?.isFocusing, muted]);
 
@@ -50,64 +57,46 @@ export default function HUD() {
     const next = !muted;
     setMuted(next);
     if (next) {
-      fadeTo(audio, 0, 800, () => audio.pause());
+      fadeTo(audio, 0, 800, () => { audioRef.current?.pause(); });
     } else if (me?.isFocusing) {
       audio.play().catch(() => {});
       fadeTo(audio, 0.75, 800);
     }
   }
 
-
-  // Live focus timer
+  // Live session timer
   useEffect(() => {
-    if (!me?.isFocusing) {
-      setElapsed(0);
-      return;
-    }
-    if (!sessionStartMs.current) {
-      sessionStartMs.current = Date.now();
-      sessionStartISO.current = new Date().toISOString();
-    }
-    const id = setInterval(() => {
-      setElapsed(Math.floor((Date.now() - sessionStartMs.current!) / 1000));
-    }, 1000);
+    if (!me?.isFocusing) { setElapsed(0); return; }
+    const start = Date.now();
+    const id = setInterval(() => setElapsed(Math.floor((Date.now() - start) / 1000)), 1000);
     return () => clearInterval(id);
   }, [me?.isFocusing]);
 
-  // Auto-focus: start when tab is visible and focused, stop when hidden or blurred
+  // Auto-focus via tab visibility/blur — ref prevents stale closure bug
   useEffect(() => {
     if (!me) return;
 
     function startFocus() {
-      if (me!.isFocusing) return;
-      sessionStartMs.current = Date.now();
-      sessionStartISO.current = new Date().toISOString();
-      setElapsed(0);
+      if (isFocusingRef.current) return;
       socket.emit('start_focus');
     }
-
     function stopFocus() {
-      if (!me!.isFocusing) return;
+      if (!isFocusingRef.current) return;
       socket.emit('stop_focus');
-      sessionStartMs.current = null;
-      sessionStartISO.current = null;
-      setElapsed(0);
+    }
+    function onVisibility() {
+      document.visibilityState === 'visible' ? startFocus() : stopFocus();
     }
 
-    function handleVisibility() {
-      if (document.visibilityState === 'visible') startFocus();
-      else stopFocus();
-    }
-
-    document.addEventListener('visibilitychange', handleVisibility);
+    document.addEventListener('visibilitychange', onVisibility);
     window.addEventListener('blur', stopFocus);
     window.addEventListener('focus', startFocus);
 
-    // Start immediately if tab is already visible
+    // Trigger immediately on mount
     if (document.visibilityState === 'visible') startFocus();
 
     return () => {
-      document.removeEventListener('visibilitychange', handleVisibility);
+      document.removeEventListener('visibilitychange', onVisibility);
       window.removeEventListener('blur', stopFocus);
       window.removeEventListener('focus', startFocus);
     };
