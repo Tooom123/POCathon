@@ -243,10 +243,10 @@ export default function GameScene() {
       <LoadingOverlay />
       <Leaderboard />
       {cameraTarget === storeMyId ? (
-        <>
+        <div className="right-panels">
           <AnimalManager visible={true} />
           <DecorManager visible={true} />
-        </>
+        </div>
       ) : <Minimap onIslandClick={handleIslandClick} />}
       <HUD />
       {shopOpen && <Shop />}

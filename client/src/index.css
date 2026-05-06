@@ -535,10 +535,19 @@ body {
 .reset-btn:active { border-bottom-width: 2px; transform: translateY(1px); }
 
 /* ─── ANIMAL MANAGER ─── */
-.animal-manager {
+.right-panels {
   position: fixed;
   bottom: 90px;
   right: 16px;
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 10px;
+  z-index: 100;
+  max-height: calc(100vh - 120px);
+  overflow-y: auto;
+}
+
+.animal-manager {
   width: 220px;
   background: #0c1410;
   border: 2px solid #1e3a28;
@@ -547,13 +556,7 @@ body {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  z-index: 100;
-  max-height: 60vh;
-}
-
-.animal-manager--decors {
-  bottom: auto;
-  top: 90px;
+  max-height: 45vh;
 }
 
 .animal-manager-title {
