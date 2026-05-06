@@ -28,10 +28,12 @@ function CameraController({
   targetId,
   positions,
   isSpawn,
+  autoRotate,
 }: {
   targetId: string | null;
   positions: Record<string, [number, number, number]>;
   isSpawn: boolean;
+  autoRotate: boolean;
 }) {
   const { camera } = useThree();
   const controlsRef = useRef<any>(null);
@@ -85,6 +87,8 @@ function CameraController({
       minDistance={4}
       maxDistance={80}
       maxPolarAngle={Math.PI / 2.1}
+      autoRotate={autoRotate}
+      autoRotateSpeed={0.6}
     />
   );
 }
@@ -194,16 +198,20 @@ export default function GameScene() {
           <FocusTicker />
           <ShootingStars />
 
-          <CameraController targetId={cameraTarget} positions={islandPositions} isSpawn={isSpawn} />
+          <CameraController
+            targetId={cameraTarget}
+            positions={islandPositions}
+            isSpawn={isSpawn}
+            autoRotate={cameraTarget === storeMyId && !!me?.isFocusing}
+          />
         </Suspense>
       </Canvas>
 
       <LoadingOverlay />
       <Leaderboard />
-      <Minimap />
+      {cameraTarget === storeMyId ? <AnimalManager visible={true} /> : <Minimap />}
       <HUD />
       {shopOpen && <Shop />}
-      <AnimalManager />
 
       {visitedPlayer && (
         <VisitOverlay

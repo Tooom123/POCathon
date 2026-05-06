@@ -2,8 +2,9 @@ import { useState } from 'react';
 import { useGameStore } from '../stores/gameStore';
 import { SHOP_ANIMALS } from '../animals';
 
-export default function AnimalManager() {
+export default function AnimalManager({ visible }: { visible: boolean }) {
   const { ownedAnimals, removeAnimal } = useGameStore();
+  if (!visible) return null;
   const [dragging, setDragging] = useState<number | null>(null);
   const [hoveringHole, setHoveringHole] = useState(false);
   const [disappearing, setDisappearing] = useState<number | null>(null);
