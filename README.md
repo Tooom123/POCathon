@@ -1,7 +1,7 @@
 <p align="center">
-  <img src="client/public/previews/animals/animal-deer.png" alt="deer" width="120" />
-  <img src="client/public/previews/animals/animal-koala.png" alt="koala" width="120" />
-  <img src="client/public/previews/animals/animal-fox.png" alt="fox" width="120" />
+  <img src="client/public/previews/animals/animal-monkey.png" alt="monkey" height="120" />
+  <img src="client/public/previews/animals/animal-koala.png" alt="koala" height="120" />
+  <img src="client/public/previews/animals/animal-fox.png" alt="fox" height="120" />
 </p>
 <h1 align="center">Focus Island</h1>
 
