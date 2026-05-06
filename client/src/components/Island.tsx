@@ -32,16 +32,25 @@ function pickModel(model: string, biome: Biome): string {
 function tintScene(root: THREE.Object3D, tint: string): THREE.Object3D {
   if (tint === '#ffffff') return root;
   const color = new THREE.Color(tint);
+  const tintMat = (m: THREE.Material): THREE.Material => {
+    const cloned = (m as THREE.MeshStandardMaterial).clone();
+    const anyMat = cloned as any;
+    // Kenney models use vertex colors that already encode the grass green.
+    // Multiplying by a strong tint would darken everything to near-black.
+    // Disable vertex colors so the material color shows through cleanly.
+    if (anyMat.vertexColors) anyMat.vertexColors = false;
+    if (anyMat.color && anyMat.color.isColor) anyMat.color.copy(color);
+    cloned.needsUpdate = true;
+    return cloned;
+  };
   root.traverse((obj) => {
     const mesh = obj as THREE.Mesh;
     if (!mesh.isMesh || !mesh.material) return;
-    const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
-    mesh.material = mats.map((m) => {
-      const cloned = (m as THREE.MeshStandardMaterial).clone();
-      if ((cloned as any).color) (cloned as any).color = color.clone();
-      return cloned;
-    }) as any;
-    if (!Array.isArray(mesh.material)) mesh.material = (mesh.material as any)[0];
+    if (Array.isArray(mesh.material)) {
+      mesh.material = mesh.material.map(tintMat);
+    } else {
+      mesh.material = tintMat(mesh.material);
+    }
   });
   return root;
 }
