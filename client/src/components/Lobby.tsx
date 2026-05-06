@@ -15,16 +15,11 @@ export default function Lobby() {
 
   return (
     <div className="lobby">
-      {/* Floating cubes decoration */}
-      <div className="lobby-cubes" aria-hidden>
-        {[...Array(8)].map((_, i) => (
-          <div key={i} className={`lobby-cube lobby-cube--${i}`} />
-        ))}
-      </div>
+      <AnimalBanners />
 
       <div className="lobby-card">
         <div className="lobby-logo">
-          <img src="/previews/animals/animal-deer.png" alt="deer" className="lobby-logo-img" />
+          <img src="/previews/animals/animal-deer-cropped.png" alt="deer" className="lobby-logo-img" />
           <h1 className="lobby-title">Focus<span className="lobby-title-accent">Island</span></h1>
         </div>
         <p className="lobby-sub">Travaillez. Progressez. Peuplez votre île.</p>
@@ -95,6 +90,44 @@ export default function Lobby() {
       <div className="lobby-footer">
         Tom &amp; Mehdi — Hackathon POC 06/05/2026
       </div>
+    </div>
+  );
+}
+
+const ALL_ANIMALS = [
+  'beaver','bee','bunny','caterpillar','cat','chick','cow','crab',
+  'deer','dog','elephant','fish','fox','giraffe','hog','koala',
+  'lion','monkey','panda','parrot','penguin','pig','polar','tiger',
+];
+
+const ROW_SIZE = 10;
+const ROWS = [
+  ALL_ANIMALS.slice(0, ROW_SIZE),
+  ALL_ANIMALS.slice(ROW_SIZE, ROW_SIZE * 2),
+  ALL_ANIMALS.slice(ROW_SIZE * 2),
+];
+
+function AnimalBanners() {
+  return (
+    <div className="lobby-banners" aria-hidden>
+      {ROWS.map((row, i) => {
+        const doubled = [...row, ...row];
+        const reverse = i % 2 === 1;
+        return (
+          <div key={i} className={`lobby-banner lobby-banner--${reverse ? 'rtl' : 'ltr'}`}>
+            <div className="lobby-banner-track">
+              {doubled.map((id, j) => (
+                <img
+                  key={j}
+                  src={`/previews/animals/animal-${id}.png`}
+                  alt={id}
+                  className="lobby-banner-img"
+                />
+              ))}
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }
