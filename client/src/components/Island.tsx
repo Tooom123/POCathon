@@ -44,27 +44,6 @@ function IslandBlocks({ gridN }: { gridN: number }) {
   );
 }
 
-/** Stone underside gives the floating island silhouette */
-function IslandBottom({ gridN }: { gridN: number }) {
-  const w = gridN * BLOCK_W;
-  return (
-    <group>
-      <mesh position={[0, -0.55, 0]}>
-        <boxGeometry args={[w * 0.88, 0.8, w * 0.88]} />
-        <meshLambertMaterial color="#55555f" />
-      </mesh>
-      <mesh position={[0, -1.3, 0]}>
-        <boxGeometry args={[w * 0.58, 0.7, w * 0.58]} />
-        <meshLambertMaterial color="#424252" />
-      </mesh>
-      <mesh position={[0, -1.9, 0]}>
-        <boxGeometry args={[w * 0.30, 0.7, w * 0.30]} />
-        <meshLambertMaterial color="#333343" />
-      </mesh>
-    </group>
-  );
-}
-
 /** Trees / flowers placed on the grass surface */
 function IslandDecor({ gridN, count }: { gridN: number; count: number }) {
   const { scene: treeScene }   = useGLTF('/models/blocks/tree-pine.glb');
@@ -135,7 +114,6 @@ export default function Island({ player, position, isOwn, onClick }: IslandProps
       )}
 
       <IslandBlocks gridN={gridN} />
-      <IslandBottom gridN={gridN} />
       <IslandDecor gridN={gridN} count={animalsToShow.length} />
 
       {animalsToShow.map((animalId, i) => (

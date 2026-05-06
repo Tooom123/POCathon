@@ -5,6 +5,8 @@ import { useGameStore } from '../stores/gameStore';
 import Island from './Island';
 import HUD from './HUD';
 import Shop from './Shop';
+import ShootingStars from './ShootingStars';
+import AnimalManager from './AnimalManager';
 import socket from '../socket';
 
 function IslandGrid() {
@@ -64,6 +66,7 @@ export default function GameScene() {
 
           <IslandGrid />
           <FocusTicker />
+          <ShootingStars />
 
           <OrbitControls
             enablePan={true}
@@ -77,6 +80,7 @@ export default function GameScene() {
 
       <HUD />
       {shopOpen && <Shop />}
+      <AnimalManager />
 
       {/* Island visit overlay */}
       {visitedPlayer && (

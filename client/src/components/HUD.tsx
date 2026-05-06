@@ -13,7 +13,7 @@ function formatTime(secs: number): string {
 }
 
 export default function HUD() {
-  const { myId, players, lobbyCode, coins, ownedAnimals, islandLevel, setShopOpen, shopOpen, tickCoins } = useGameStore();
+  const { myId, players, lobbyCode, coins, ownedAnimals, islandLevel, setShopOpen, shopOpen, tickCoins, resetIsland } = useGameStore();
   const me = myId ? players[myId] : null;
 
   const sessionStart = useRef<number | null>(null);
@@ -100,6 +100,13 @@ export default function HUD() {
 
         <button className="shop-btn" onClick={() => setShopOpen(!shopOpen)}>
           🐾 Shop
+        </button>
+
+        <button
+          className="reset-btn"
+          onClick={() => { if (confirm('Réinitialiser l\'île et tous les animaux ?')) resetIsland(); }}
+        >
+          🔄 Reset
         </button>
 
         <div className={`hud-capacity ${atCapacity ? 'hud-capacity--full' : ''}`}>

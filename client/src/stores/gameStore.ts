@@ -33,6 +33,8 @@ interface GameStore {
 
   tickCoins: () => void;
   buyAnimal: (animalId: string, cost: number) => boolean;
+  removeAnimal: (index: number) => void;
+  resetIsland: () => void;
   upgradeIsland: (toLevel: number) => boolean;
   setShopOpen: (open: boolean) => void;
 }
@@ -105,6 +107,19 @@ export const useGameStore = create<GameStore>((set, get) => ({
     set({ coins: nextCoins, ownedAnimals: nextAnimals });
     save(nextCoins, nextAnimals, islandLevel);
     return true;
+  },
+
+  removeAnimal: (index) => {
+    const { coins, ownedAnimals, islandLevel } = get();
+    const next = ownedAnimals.filter((_, i) => i !== index);
+    set({ ownedAnimals: next });
+    save(coins, next, islandLevel);
+  },
+
+  resetIsland: () => {
+    const next = { coins: 0, ownedAnimals: ['bunny'], islandLevel: 1 };
+    set(next);
+    save(next.coins, next.ownedAnimals, next.islandLevel);
   },
 
   upgradeIsland: (toLevel) => {

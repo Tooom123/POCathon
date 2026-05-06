@@ -499,3 +499,121 @@ body {
   border: 1px solid rgba(255,255,255,0.08);
 }
 .island-label--own { color: #ffdd55; }
+
+/* ─── RESET BUTTON ─── */
+.reset-btn {
+  padding: 8px 14px;
+  background: #1a0a0a;
+  border: 2px solid #5a2a2a;
+  border-bottom: 4px solid #3a0a0a;
+  border-radius: 6px;
+  color: #cc6666;
+  font-family: inherit;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.1s;
+}
+.reset-btn:hover { background: #2a0a0a; border-color: #aa4444; color: #ff8888; }
+.reset-btn:active { border-bottom-width: 2px; transform: translateY(1px); }
+
+/* ─── ANIMAL MANAGER ─── */
+.animal-manager {
+  position: fixed;
+  bottom: 90px;
+  right: 16px;
+  width: 220px;
+  background: #0c1410;
+  border: 2px solid #1e3a28;
+  border-radius: 10px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  z-index: 100;
+  max-height: 60vh;
+}
+
+.animal-manager-title {
+  font-size: 0.78rem;
+  font-weight: 800;
+  color: #5a8a6a;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.animal-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  overflow-y: auto;
+  max-height: 200px;
+}
+
+.animal-chip {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: #131e18;
+  border: 1px solid #2a4a3a;
+  border-radius: 6px;
+  padding: 4px 8px;
+  cursor: grab;
+  font-size: 0.72rem;
+  color: #c0e8c0;
+  transition: opacity 0.15s, transform 0.15s;
+  user-select: none;
+}
+.animal-chip:hover { border-color: #4aac58; }
+.animal-chip--dragging { opacity: 0.4; transform: scale(0.9); }
+.animal-chip--disappearing {
+  animation: suck-in 0.5s ease-in forwards;
+}
+.animal-chip-img { width: 24px; height: 24px; object-fit: contain; }
+
+@keyframes suck-in {
+  0%   { transform: scale(1); opacity: 1; }
+  100% { transform: scale(0); opacity: 0; }
+}
+
+/* ─── BLACK HOLE ─── */
+.black-hole {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 8px;
+  border-radius: 50%;
+  transition: all 0.2s;
+  opacity: 0.3;
+  pointer-events: none;
+}
+.black-hole--active {
+  opacity: 1;
+  pointer-events: all;
+}
+.black-hole--hover .black-hole-ring {
+  animation: spin 0.4s linear infinite;
+  border-color: #aa44ff transparent #aa44ff transparent;
+}
+.black-hole-ring {
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  border: 3px solid #6622bb transparent #6622bb transparent;
+  animation: spin 1.2s linear infinite;
+}
+.black-hole-core {
+  font-size: 1.6rem;
+  margin-top: -42px;
+}
+.black-hole-label {
+  font-size: 0.65rem;
+  color: #aa66ff;
+  font-weight: 700;
+  letter-spacing: 1px;
+  margin-top: 4px;
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
