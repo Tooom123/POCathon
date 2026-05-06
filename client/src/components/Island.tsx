@@ -3,33 +3,67 @@ import { useGLTF, Html } from '@react-three/drei';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import Animal from './Animal';
-import AutumnLeaves from './AutumnLeaves';
+import AmbientParticles from './AmbientParticles';
 import { PlayerState, useGameStore } from '../stores/gameStore';
 import { SHOP_ANIMALS, getIslandLevel } from '../animals';
 import { getLayout, BlockDef, DecorDef } from '../islandLayout';
+import { Biome, biomeForSeed, transformForSeed, applyTransform, transformRotY, makeRng, hashString } from '../biomes';
 
-export const ISLAND_SURFACE_Y = 1.0; // exact top of standard block
+export const ISLAND_SURFACE_Y = 1.0;
 
 const BLOCK_MODELS = [
-  'block-grass',
-  'block-grass-large',
-  'block-grass-long',
-  'block-grass-low',
-  'block-grass-low-large',
-  'block-grass-edge',
-  'block-grass-corner',
-  'block-grass-corner-low',
+  'block-grass', 'block-grass-large', 'block-grass-long',
+  'block-grass-low', 'block-grass-low-large', 'block-grass-edge',
+  'block-grass-corner', 'block-grass-corner-low',
+  'block-snow', 'block-snow-large',
 ];
 
-function BlockInstance({ def }: { def: BlockDef }) {
-  const { scene } = useGLTF(`/models/blocks/${def.model}.glb`);
-  const clone = useMemo(() => scene.clone(true), [scene]);
+/** Map a grass-block model name to its snow counterpart when biome.useSnowBlocks. */
+function pickModel(model: string, biome: Biome): string {
+  if (!biome.useSnowBlocks) return model;
+  // Only the two large-surface blocks have native snow GLBs in /public.
+  // The rest are kept as grass models but tinted by the biome.
+  if (model === 'block-grass') return 'block-snow';
+  if (model === 'block-grass-large') return 'block-snow-large';
+  return model;
+}
+
+/** Apply a tint color to all mesh materials in a cloned scene. */
+function tintScene(root: THREE.Object3D, tint: string): THREE.Object3D {
+  if (tint === '#ffffff') return root;
+  const color = new THREE.Color(tint);
+  root.traverse((obj) => {
+    const mesh = obj as THREE.Mesh;
+    if (!mesh.isMesh || !mesh.material) return;
+    const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+    mesh.material = mats.map((m) => {
+      const cloned = (m as THREE.MeshStandardMaterial).clone();
+      if ((cloned as any).color) (cloned as any).color = color.clone();
+      return cloned;
+    }) as any;
+    if (!Array.isArray(mesh.material)) mesh.material = (mesh.material as any)[0];
+  });
+  return root;
+}
+
+function BlockInstance({ def, biome }: { def: BlockDef; biome: Biome }) {
+  const modelName = pickModel(def.model, biome);
+  const { scene } = useGLTF(`/models/blocks/${modelName}.glb`);
+  // Tint applies only to grass-based models. Snow models stay white.
+  const tint = modelName.startsWith('block-snow') ? '#ffffff' : biome.blockTint;
+  const clone = useMemo(() => tintScene(scene.clone(true), tint), [scene, tint]);
   return <primitive object={clone} position={[def.x, def.y, def.z]} rotation={[0, def.rotY, 0]} />;
 }
 
-function DecorInstance({ def }: { def: DecorDef }) {
-  const { scene } = useGLTF(`/models/blocks/${def.model}.glb`);
-  const clone = useMemo(() => scene.clone(true), [scene]);
+function DecorInstance({ def, biome }: { def: DecorDef; biome: Biome }) {
+  // Trees: pick biome-specific tree model
+  const modelName = def.model === 'tree-pine' ? biome.treeModel : def.model;
+  const { scene } = useGLTF(`/models/blocks/${modelName}.glb`);
+  // Trees tint with biome's treeTint; flowers/mushrooms keep biome blockTint.
+  const tint = modelName.startsWith('tree')
+    ? biome.treeTint
+    : biome.blockTint;
+  const clone = useMemo(() => tintScene(scene.clone(true), tint), [scene, tint]);
   return (
     <primitive
       object={clone}
@@ -37,24 +71,6 @@ function DecorInstance({ def }: { def: DecorDef }) {
       rotation={[0, def.rotY, 0]}
       scale={def.scale}
     />
-  );
-}
-
-function IslandBlocks({ level }: { level: number }) {
-  const layout = useMemo(() => getLayout(level), [level]);
-  return (
-    <group>
-      {layout.blocks.map((def, i) => <BlockInstance key={i} def={def} />)}
-    </group>
-  );
-}
-
-function IslandDecor({ level }: { level: number }) {
-  const layout = useMemo(() => getLayout(level), [level]);
-  return (
-    <group>
-      {layout.decors.map((def, i) => <DecorInstance key={i} def={def} />)}
-    </group>
   );
 }
 
@@ -67,14 +83,42 @@ interface IslandProps {
 
 export default function Island({ player, position, isOwn, onClick }: IslandProps) {
   const groupRef = useRef<THREE.Group>(null);
-  const { ownedAnimals, islandLevel } = useGameStore();
-  const { isFocusing, name, islandIndex } = player;
-  const { shopOpen } = useGameStore();
+  const { ownedAnimals, islandLevel, shopOpen } = useGameStore();
+  const { isFocusing, name, islandIndex, id: playerId } = player;
 
   const displayLevel = isOwn ? islandLevel : (player.islandLevel ?? 1);
   const islandInfo = getIslandLevel(displayLevel);
   const { capacity } = islandInfo;
   const layout = useMemo(() => getLayout(displayLevel), [displayLevel]);
+
+  // Biome + layout transform derived from player ID (stable across reloads on same socket).
+  // We use playerId for biome selection but the islandIndex would also work.
+  const biome = useMemo(() => biomeForSeed(playerId || `idx-${islandIndex}`), [playerId, islandIndex]);
+  const transform = useMemo(() => transformForSeed(playerId || `idx-${islandIndex}`), [playerId, islandIndex]);
+
+  // Apply transform to layout coordinates and rotations
+  const transformedBlocks = useMemo<BlockDef[]>(() => layout.blocks.map((b) => {
+    const [x, z] = applyTransform(b.x, b.z, transform);
+    return { ...b, x, z, rotY: transformRotY(b.rotY, transform) };
+  }), [layout, transform]);
+
+  // Randomized decor: shuffle/extend the base list using seed-based PRNG
+  const transformedDecors = useMemo<DecorDef[]>(() => {
+    const rng = makeRng(hashString(playerId + ':decor'));
+    return layout.decors
+      .map((d) => {
+        const [x, z] = applyTransform(d.x, d.z, transform);
+        const jitterX = (rng() - 0.5) * 0.2;
+        const jitterZ = (rng() - 0.5) * 0.2;
+        return {
+          ...d,
+          x: x + jitterX,
+          z: z + jitterZ,
+          rotY: transformRotY(d.rotY, transform) + (rng() - 0.5) * 0.6,
+          scale: d.scale * (0.85 + rng() * 0.3),
+        };
+      });
+  }, [layout, transform, playerId]);
 
   const FALLBACK = ['bunny','cat','dog','chick','penguin','fox','panda','koala'];
   const animalsToShow = isOwn
@@ -91,23 +135,31 @@ export default function Island({ player, position, isOwn, onClick }: IslandProps
     groupRef.current.position.y = position[1] + Math.sin(t * 0.4 + islandIndex * 1.3) * 0.1;
   });
 
-  const pointColor     = isFocusing ? '#aaddff' : '#6688cc';
+  const pointColor = isFocusing ? biome.lightFocusColor : biome.lightColor;
   const pointIntensity = isFocusing ? 3.0 : 0.9;
-  const islandSize     = 3 + displayLevel * 2;
-
-  // Island block scale: makes islands larger so animals have room to roam
+  const islandSize = 3 + displayLevel * 2;
   const ISLAND_SCALE = 1.6;
 
   return (
     <group ref={groupRef} position={position}>
       <pointLight position={[0, 3, 0]} color={pointColor} intensity={pointIntensity} distance={islandSize + 8} />
 
-      {/* All island geometry + animals share the same scale so animals sit on exact surface */}
       <group scale={ISLAND_SCALE}>
-        <IslandBlocks level={displayLevel} />
-        <IslandDecor level={displayLevel} />
+        <group>
+          {transformedBlocks.map((def, i) => <BlockInstance key={i} def={def} biome={biome} />)}
+        </group>
+        <group>
+          {transformedDecors.map((def, i) => <DecorInstance key={i} def={def} biome={biome} />)}
+        </group>
 
-        <AutumnLeaves active={isFocusing} radius={layout.walkRadius} />
+        {biome.ambientParticle !== 'none' && (
+          <AmbientParticles
+            kind={biome.ambientParticle}
+            active={isFocusing}
+            radius={layout.walkRadius}
+            colors={biome.ambientParticleColor}
+          />
+        )}
 
         {animalsToShow.map((animalId, i) => {
           const animalData = SHOP_ANIMALS.find(a => a.id === animalId);
@@ -134,10 +186,11 @@ export default function Island({ player, position, isOwn, onClick }: IslandProps
       >
         <div className={`island-label ${isOwn ? 'island-label--own' : ''} ${isFocusing ? 'island-label--focusing' : ''}`}>
           {name}
+          <div className="island-biome-label" style={{ color: biome.lightColor }}>{biome.label}</div>
         </div>
       </Html>
 
-<mesh visible={false} onClick={onClick}>
+      <mesh visible={false} onClick={onClick}>
         <boxGeometry args={[islandSize + 2, 8, islandSize + 2]} />
         <meshBasicMaterial />
       </mesh>
