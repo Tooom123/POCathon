@@ -27,12 +27,22 @@ const ANIMAL_INCOME = {
   elephant: 1800, giraffe: 3000, polar: 5000,
 };
 
+// Income per second per decor item
+const DECOR_INCOME = {
+  'plant': 0.3,
+  'flowers-tall': 1.5,
+  'mushrooms': 4,
+  'tree-pine': 12,
+};
+
 function getUnlockedCount(totalSeconds) {
   return ANIMAL_THRESHOLDS.filter(t => totalSeconds >= t).length;
 }
 
-function computeIncome(ownedAnimals) {
-  return (ownedAnimals || []).reduce((sum, id) => sum + (ANIMAL_INCOME[id] ?? 0), 0);
+function computeIncome(ownedAnimals, placedDecors) {
+  const animals = (ownedAnimals || []).reduce((sum, id) => sum + (ANIMAL_INCOME[id] ?? 0), 0);
+  const decors = (placedDecors || []).reduce((sum, d) => sum + (DECOR_INCOME[d?.id] ?? 0), 0);
+  return animals + decors;
 }
 
 io.on('connection', (socket) => {
@@ -46,14 +56,14 @@ io.on('connection', (socket) => {
   socket.on('pong_ack', () => { /* still alive */ });
 
   // Create or join lobby
-  socket.on('join_lobby', ({ code, playerName, ownedAnimals, islandLevel }) => {
+  socket.on('join_lobby', ({ code, playerName, ownedAnimals, islandLevel, placedDecors }) => {
     let lobbyCode = code ? code.toUpperCase() : generateCode();
     if (!lobbies[lobbyCode]) {
       lobbies[lobbyCode] = { players: {} };
     }
 
     const lobby = lobbies[lobbyCode];
-    const incomePerSec = computeIncome(ownedAnimals);
+    const incomePerSec = computeIncome(ownedAnimals, placedDecors);
     lobby.players[socket.id] = {
       id: socket.id,
       name: playerName || 'Joueur',
@@ -64,6 +74,7 @@ io.on('connection', (socket) => {
       islandIndex: Object.keys(lobby.players).length,
       islandLevel: islandLevel ?? 1,
       ownedAnimals: ownedAnimals ?? ['bunny'],
+      placedDecors: placedDecors ?? [],
       incomePerSec,
     };
 
@@ -82,14 +93,15 @@ io.on('connection', (socket) => {
   });
 
   // Client can update its island/animal state
-  socket.on('sync_state', ({ ownedAnimals, islandLevel }) => {
+  socket.on('sync_state', ({ ownedAnimals, islandLevel, placedDecors }) => {
     const { lobbyCode } = socket.data;
     if (!lobbyCode || !lobbies[lobbyCode]) return;
     const player = lobbies[lobbyCode].players[socket.id];
     if (!player) return;
     player.ownedAnimals = ownedAnimals ?? player.ownedAnimals;
     player.islandLevel = islandLevel ?? player.islandLevel;
-    player.incomePerSec = computeIncome(player.ownedAnimals);
+    if (placedDecors !== undefined) player.placedDecors = placedDecors;
+    player.incomePerSec = computeIncome(player.ownedAnimals, player.placedDecors);
     io.to(lobbyCode).emit('player_updated', player);
   });
 

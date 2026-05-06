@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useGameStore } from '../stores/gameStore';
-import { formatCoins, getTotalIncome, getIslandLevel } from '../animals';
+import { formatCoins, getTotalIncome, getTotalDecorIncome, getIslandLevel } from '../animals';
 import socket from '../socket';
 
 function formatTime(secs: number): string {
@@ -13,7 +13,7 @@ function formatTime(secs: number): string {
 }
 
 export default function HUD() {
-  const { myId, players, lobbyCode, coins, ownedAnimals, islandLevel, setShopOpen, shopOpen, tickCoins, resetIsland } = useGameStore();
+  const { myId, players, lobbyCode, coins, ownedAnimals, islandLevel, placedDecors, setShopOpen, shopOpen, tickCoins, resetIsland } = useGameStore();
   const me = myId ? players[myId] : null;
 
   const sessionStart = useRef<number | null>(null);
@@ -55,7 +55,7 @@ export default function HUD() {
 
   const totalDisplay = me.totalWorkSeconds + elapsed;
   const focusingCount = Object.values(players).filter((p) => p.isFocusing).length;
-  const incomePerSec = getTotalIncome(ownedAnimals);
+  const incomePerSec = getTotalIncome(ownedAnimals) + getTotalDecorIncome(placedDecors.map((d) => d.id));
   const { capacity, label: islandLabel } = getIslandLevel(islandLevel);
   const atCapacity = ownedAnimals.length >= capacity;
 

@@ -58,17 +58,18 @@ export interface IslandLevel {
   level: number;
   gridN: number;
   capacity: number;
+  decorCapacity: number;
   label: string;
   upgradeCost: number;
 }
 
 export const ISLAND_LEVELS: IslandLevel[] = [
-  { level: 1, gridN: 3, capacity: 4,  label: 'Petite île',      upgradeCost: 500    },
-  { level: 2, gridN: 4, capacity: 6,  label: 'Île modeste',     upgradeCost: 3000   },
-  { level: 3, gridN: 5, capacity: 9,  label: 'Île étendue',     upgradeCost: 15000  },
-  { level: 4, gridN: 6, capacity: 13, label: 'Grande île',      upgradeCost: 70000  },
-  { level: 5, gridN: 7, capacity: 18, label: 'Île majestueuse', upgradeCost: 300000 },
-  { level: 6, gridN: 8, capacity: 25, label: 'Île royale',      upgradeCost: Infinity },
+  { level: 1, gridN: 3, capacity: 4,  decorCapacity: 2,  label: 'Petite île',      upgradeCost: 500    },
+  { level: 2, gridN: 4, capacity: 6,  decorCapacity: 4,  label: 'Île modeste',     upgradeCost: 3000   },
+  { level: 3, gridN: 5, capacity: 9,  decorCapacity: 6,  label: 'Île étendue',     upgradeCost: 15000  },
+  { level: 4, gridN: 6, capacity: 13, decorCapacity: 9,  label: 'Grande île',      upgradeCost: 70000  },
+  { level: 5, gridN: 7, capacity: 18, decorCapacity: 13, label: 'Île majestueuse', upgradeCost: 300000 },
+  { level: 6, gridN: 8, capacity: 25, decorCapacity: 18, label: 'Île royale',      upgradeCost: Infinity },
 ];
 
 export function getIslandLevel(level: number): IslandLevel {
@@ -82,6 +83,13 @@ export function getTotalIncome(owned: string[]): number {
   }, 0);
 }
 
+export function getTotalDecorIncome(decorIds: DecorModel[]): number {
+  return decorIds.reduce((sum, id) => {
+    const d = SHOP_DECORS.find((x) => x.id === id);
+    return sum + (d?.incomePerSec ?? 0);
+  }, 0);
+}
+
 // ─── Decor catalog ────────────────────────────────────────────────────────
 export type DecorModel = 'tree-pine' | 'flowers-tall' | 'mushrooms' | 'plant';
 
@@ -90,15 +98,16 @@ export interface DecorItem {
   name: string;
   emoji: string;
   cost: number;
-  scale: number;       // visual scale on island
+  scale: number;
+  incomePerSec: number;
   unlockSeconds: number;
 }
 
 export const SHOP_DECORS: DecorItem[] = [
-  { id: 'plant',        name: 'Plante',     emoji: '🌿', cost: 50,    scale: 0.7,  unlockSeconds: 0     },
-  { id: 'flowers-tall', name: 'Fleurs',     emoji: '🌷', cost: 200,   scale: 0.8,  unlockSeconds: 0     },
-  { id: 'mushrooms',    name: 'Champignons',emoji: '🍄', cost: 500,   scale: 0.8,  unlockSeconds: 60    },
-  { id: 'tree-pine',    name: 'Sapin',      emoji: '🌲', cost: 1500,  scale: 1.25, unlockSeconds: 240   },
+  { id: 'plant',        name: 'Plante',     emoji: '🌿', cost: 50,    scale: 0.7,  incomePerSec: 0.3,  unlockSeconds: 0     },
+  { id: 'flowers-tall', name: 'Fleurs',     emoji: '🌷', cost: 200,   scale: 0.8,  incomePerSec: 1.5,  unlockSeconds: 0     },
+  { id: 'mushrooms',    name: 'Champignons',emoji: '🍄', cost: 500,   scale: 0.8,  incomePerSec: 4,    unlockSeconds: 60    },
+  { id: 'tree-pine',    name: 'Sapin',      emoji: '🌲', cost: 1500,  scale: 1.25, incomePerSec: 12,   unlockSeconds: 240   },
 ];
 
 export function getDecorItem(id: DecorModel): DecorItem | undefined {

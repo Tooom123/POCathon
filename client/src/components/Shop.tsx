@@ -199,9 +199,17 @@ export default function Shop() {
         {/* DECOR TAB */}
         {tab === 'decor' && (
           <div className="shop-grid">
+            <div className="shop-capacity-bar" style={{ gridColumn: '1 / -1' }}>
+              <span>Décors</span>
+              <span className={placedDecors.length >= islandInfo.decorCapacity ? 'cap-full' : ''}>
+                🌲 {placedDecors.length} / {islandInfo.decorCapacity}
+                {placedDecors.length >= islandInfo.decorCapacity && ' — slots pleins !'}
+              </span>
+            </div>
             {SHOP_DECORS.map((decor) => {
               const isUnlocked = totalFocusSeconds >= decor.unlockSeconds;
               const canAfford = coins >= decor.cost;
+              const slotsFull = placedDecors.length >= islandInfo.decorCapacity;
               const owned = placedDecors.filter((d) => d.id === decor.id).length;
 
               return (
@@ -212,10 +220,13 @@ export default function Shop() {
                     {owned > 0 && <div className="shop-card-owned-badge">×{owned}</div>}
                   </div>
                   <div className="shop-card-name">{decor.name}</div>
+                  <div className="shop-card-income">+{formatCoins(decor.incomePerSec)}/s</div>
                   {!isUnlocked ? (
                     <div className="shop-card-lock-msg">
                       🔒 Focus encore {fmtSec(decor.unlockSeconds - totalFocusSeconds)}
                     </div>
+                  ) : slotsFull ? (
+                    <div className="shop-card-lock-msg cap-full">Slots pleins</div>
                   ) : (
                     <>
                       <button

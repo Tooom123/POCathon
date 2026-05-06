@@ -3,14 +3,14 @@ import socket from '../socket';
 import { useGameStore, PlayerState } from '../stores/gameStore';
 
 export function useSocket() {
-  const { setLobby, addPlayer, removePlayer, updatePlayer, updatePlayerTick, ownedAnimals, islandLevel } = useGameStore();
+  const { setLobby, addPlayer, removePlayer, updatePlayer, updatePlayerTick, ownedAnimals, islandLevel, placedDecors } = useGameStore();
 
   useEffect(() => {
     socket.on('lobby_joined', ({ code, myId, players }: { code: string; myId: string; players: Record<string, PlayerState> }) => {
       setLobby(code, myId, players);
       // Send our local state to the server right after joining
-      const { ownedAnimals: animals, islandLevel: level } = useGameStore.getState();
-      socket.emit('sync_state', { ownedAnimals: animals, islandLevel: level });
+      const { ownedAnimals: animals, islandLevel: level, placedDecors } = useGameStore.getState();
+      socket.emit('sync_state', { ownedAnimals: animals, islandLevel: level, placedDecors });
     });
 
     socket.on('player_joined', (player: PlayerState) => addPlayer(player));
@@ -33,9 +33,9 @@ export function useSocket() {
     };
   }, []);
 
-  // Sync state whenever owned animals or island level change
+  // Sync state whenever owned animals, island level, or decors change
   useEffect(() => {
     if (!socket.connected) return;
-    socket.emit('sync_state', { ownedAnimals, islandLevel });
-  }, [JSON.stringify(ownedAnimals), islandLevel]);
+    socket.emit('sync_state', { ownedAnimals, islandLevel, placedDecors });
+  }, [JSON.stringify(ownedAnimals), islandLevel, JSON.stringify(placedDecors)]);
 }

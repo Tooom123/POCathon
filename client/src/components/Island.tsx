@@ -230,7 +230,6 @@ export default function Island({ player, position, isOwn, onClick }: IslandProps
       >
         <div className={`island-label ${isOwn ? 'island-label--own' : ''} ${isFocusing ? 'island-label--focusing' : ''}`}>
           {name}
-          <div className="island-biome-label" style={{ color: biome.lightColor }}>{biome.label}</div>
         </div>
       </Html>
 

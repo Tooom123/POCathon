@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { getTotalIncome, getIslandLevel, DecorModel } from '../animals';
+import { getTotalIncome, getTotalDecorIncome, getIslandLevel, DecorModel } from '../animals';
 import socket from '../socket';
 
 export interface PlacedDecor {
@@ -108,7 +108,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   visitIsland: (id) => set({ visitingIslandId: id }),
 
   tickCoins: () => {
-    const { lastTickTime, ownedAnimals, coins, islandLevel, players, myId } = get();
+    const { lastTickTime, ownedAnimals, coins, islandLevel, placedDecors, players, myId } = get();
     const now = Date.now();
     const me = myId ? players[myId] : null;
     if (!me?.isFocusing) {
@@ -116,10 +116,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
       return;
     }
     const dt = Math.min((now - lastTickTime) / 1000, 5);
-    const income = getTotalIncome(ownedAnimals);
+    const income = getTotalIncome(ownedAnimals) + getTotalDecorIncome(placedDecors.map((d) => d.id));
     const next = coins + income * dt;
     set({ coins: next, lastTickTime: now });
-    save(next, ownedAnimals, islandLevel);
+    save(next, ownedAnimals, islandLevel, placedDecors);
   },
 
   buyAnimal: (animalId, cost) => {
@@ -130,7 +130,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const nextCoins = coins - cost;
     set({ coins: nextCoins, ownedAnimals: nextAnimals });
     save(nextCoins, nextAnimals, islandLevel, placedDecors);
-    socket.emit('sync_state', { ownedAnimals: nextAnimals, islandLevel });
+    socket.emit('sync_state', { ownedAnimals: nextAnimals, islandLevel, placedDecors });
     return true;
   },
 
@@ -139,12 +139,13 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const next = ownedAnimals.filter((_, i) => i !== index);
     set({ ownedAnimals: next });
     save(coins, next, islandLevel, placedDecors);
-    socket.emit('sync_state', { ownedAnimals: next, islandLevel });
+    socket.emit('sync_state', { ownedAnimals: next, islandLevel, placedDecors });
   },
 
   buyDecor: (decorId, cost, scale) => {
     const { coins, ownedAnimals, islandLevel, placedDecors } = get();
-    if (coins < cost) return false;
+    const { decorCapacity } = getIslandLevel(islandLevel);
+    if (coins < cost || placedDecors.length >= decorCapacity) return false;
     // Random placement on a ring around the island (avoids overlap with center animals)
     const angle = Math.random() * Math.PI * 2;
     const r = 1.6 + Math.random() * 0.8;
@@ -155,6 +156,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const nextCoins = coins - cost;
     set({ coins: nextCoins, placedDecors: next });
     save(nextCoins, ownedAnimals, islandLevel, next);
+    socket.emit('sync_state', { ownedAnimals, islandLevel, placedDecors: next });
     return true;
   },
 
@@ -163,13 +165,14 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const next = placedDecors.filter((_, i) => i !== index);
     set({ placedDecors: next });
     save(coins, ownedAnimals, islandLevel, next);
+    socket.emit('sync_state', { ownedAnimals, islandLevel, placedDecors: next });
   },
 
   resetIsland: () => {
     const next = { coins: 0, ownedAnimals: ['bunny'], islandLevel: 1, placedDecors: [] as PlacedDecor[] };
     set(next);
     save(next.coins, next.ownedAnimals, next.islandLevel, next.placedDecors);
-    socket.emit('sync_state', { ownedAnimals: next.ownedAnimals, islandLevel: next.islandLevel });
+    socket.emit('sync_state', { ownedAnimals: next.ownedAnimals, islandLevel: next.islandLevel, placedDecors: next.placedDecors });
   },
 
   upgradeIsland: (toLevel) => {
@@ -179,7 +182,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const nextCoins = coins - current.upgradeCost;
     set({ coins: nextCoins, islandLevel: toLevel });
     save(nextCoins, ownedAnimals, toLevel, placedDecors);
-    socket.emit('sync_state', { ownedAnimals, islandLevel: toLevel });
+    socket.emit('sync_state', { ownedAnimals, islandLevel: toLevel, placedDecors });
     return true;
   },
 
