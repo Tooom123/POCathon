@@ -114,6 +114,8 @@ export default function Animal({ animalId, slot, total, isFocusing, walkRadius, 
   const baseAngle = (slot / Math.max(total, 1)) * Math.PI * 2;
   // Slightly different speed per slot so they don't clump
   const orbitSpeed = 0.22 + (slot % 4) * 0.04;
+  // Time the focus session started (clock seconds); reset every idle→focus transition
+  const focusStartT = useRef<number | null>(null);
 
   useEffect(() => {
     if (!actions) return;
@@ -133,6 +135,8 @@ export default function Animal({ animalId, slot, total, isFocusing, walkRadius, 
     const t = clock.getElapsedTime();
 
     if (!isFocusing) {
+      // Reset focus start so next session begins from this exact spot
+      focusStartT.current = null;
       // Idle: fixed position around island, facing center, tiny breathe
       const bx = Math.cos(baseAngle) * orbitRadius;
       const bz = Math.sin(baseAngle) * orbitRadius;
@@ -146,8 +150,11 @@ export default function Animal({ animalId, slot, total, isFocusing, walkRadius, 
       return;
     }
 
+    // First frame of focus: anchor so orbit starts smoothly from idle position
+    if (focusStartT.current === null) focusStartT.current = t;
+    const dt = t - focusStartT.current;
     // Focus: slow orbit around island (AFK patrol)
-    const angle = baseAngle + t * orbitSpeed;
+    const angle = baseAngle + dt * orbitSpeed;
     const x = Math.cos(angle) * orbitRadius;
     const z = Math.sin(angle) * orbitRadius;
 
