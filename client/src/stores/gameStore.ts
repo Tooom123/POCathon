@@ -25,6 +25,7 @@ export interface PlayerState {
 
 interface GameStore {
   lobbyCode: string | null;
+  lobbyName: string | null;
   myId: string | null;
   players: Record<string, PlayerState>;
   visitingIslandId: string | null;
@@ -37,7 +38,7 @@ interface GameStore {
 
   shopOpen: boolean;
 
-  setLobby: (code: string, myId: string, players: Record<string, PlayerState>) => void;
+  setLobby: (code: string, name: string | null, myId: string, players: Record<string, PlayerState>) => void;
   addPlayer: (player: PlayerState) => void;
   removePlayer: (id: string) => void;
   updatePlayer: (player: PlayerState) => void;
@@ -74,6 +75,7 @@ const saved = loadSaved();
 
 export const useGameStore = create<GameStore>((set, get) => ({
   lobbyCode: null,
+  lobbyName: null,
   myId: null,
   players: {},
   visitingIslandId: null,
@@ -85,7 +87,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   placedDecors: saved.placedDecors ?? [],
   lastTickTime: Date.now(),
 
-  setLobby: (code, myId, players) => set({ lobbyCode: code, myId, players }),
+  setLobby: (code, name, myId, players) => set({ lobbyCode: code, lobbyName: name, myId, players }),
   addPlayer: (player) => set((s) => ({ players: { ...s.players, [player.id]: player } })),
   removePlayer: (id) => set((s) => { const { [id]: _, ...rest } = s.players; return { players: rest }; }),
   updatePlayer: (player) => set((s) => ({ players: { ...s.players, [player.id]: player } })),

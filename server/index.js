@@ -56,10 +56,10 @@ io.on('connection', (socket) => {
   socket.on('pong_ack', () => { /* still alive */ });
 
   // Create or join lobby
-  socket.on('join_lobby', ({ code, playerName, ownedAnimals, islandLevel, placedDecors }) => {
+  socket.on('join_lobby', ({ code, playerName, lobbyName, ownedAnimals, islandLevel, placedDecors }) => {
     let lobbyCode = code ? code.toUpperCase() : generateCode();
     if (!lobbies[lobbyCode]) {
-      lobbies[lobbyCode] = { players: {} };
+      lobbies[lobbyCode] = { players: {}, name: lobbyName || null };
     }
 
     const lobby = lobbies[lobbyCode];
@@ -84,6 +84,7 @@ io.on('connection', (socket) => {
 
     socket.emit('lobby_joined', {
       code: lobbyCode,
+      name: lobby.name,
       myId: socket.id,
       players: lobby.players,
     });

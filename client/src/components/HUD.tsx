@@ -13,7 +13,7 @@ function formatTime(secs: number): string {
 }
 
 export default function HUD() {
-  const { myId, players, lobbyCode, coins, ownedAnimals, islandLevel, placedDecors, setShopOpen, shopOpen, tickCoins, resetIsland } = useGameStore();
+  const { myId, players, lobbyCode, lobbyName, coins, ownedAnimals, islandLevel, placedDecors, setShopOpen, shopOpen, tickCoins, resetIsland } = useGameStore();
   const me = myId ? players[myId] : null;
 
   const sessionStart = useRef<number | null>(null);
@@ -64,8 +64,10 @@ export default function HUD() {
       {/* TOP BAR */}
       <div className="hud-top">
         <div className="hud-lobby-badge">
-          <span className="hud-lobby-label">LOBBY</span>
-          <span className="hud-lobby-code">{lobbyCode}</span>
+          {lobbyName
+            ? <span className="hud-lobby-name">{lobbyName}</span>
+            : <><span className="hud-lobby-label">LOBBY</span><span className="hud-lobby-code">{lobbyCode}</span></>
+          }
         </div>
         {focusingCount > 0 && (
           <div className="hud-social-badge">🔥 {focusingCount} en focus</div>

@@ -3,13 +3,14 @@ import socket from '../socket';
 
 export default function Lobby() {
   const [name, setName] = useState('');
+  const [lobbyName, setLobbyName] = useState('');
   const [code, setCode] = useState('');
   const [mode, setMode] = useState<'menu' | 'join'>('menu');
 
   function connect(lobbyCode?: string) {
     if (!name.trim()) return;
     socket.connect();
-    socket.emit('join_lobby', { code: lobbyCode, playerName: name.trim() });
+    socket.emit('join_lobby', { code: lobbyCode, playerName: name.trim(), lobbyName: lobbyName.trim() || null });
   }
 
   return (
@@ -42,6 +43,17 @@ export default function Lobby() {
 
         {mode === 'menu' && (
           <div className="lobby-actions">
+            <div className="lobby-field">
+              <label className="lobby-label">Nom du lobby <span style={{ color: '#3a5a3a' }}>(optionnel)</span></label>
+              <input
+                className="lobby-input"
+                placeholder="Ex : Séance du mardi"
+                value={lobbyName}
+                maxLength={30}
+                onChange={(e) => setLobbyName(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && connect()}
+              />
+            </div>
             <button className="cube-btn cube-btn--green" onClick={() => connect()}>
               ▶ Créer un lobby
             </button>

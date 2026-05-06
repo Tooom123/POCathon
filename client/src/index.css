@@ -179,6 +179,16 @@ body {
 .hud-lobby-badge { display: flex; align-items: center; gap: 8px; }
 .hud-lobby-label { font-size: 0.6rem; font-weight: 700; letter-spacing: 2px; color: #4a6a4a; text-transform: uppercase; }
 .hud-lobby-code  { font-size: 1rem; font-weight: 800; letter-spacing: 4px; color: #4aac58; }
+.hud-lobby-name  {
+  font-family: 'Courier New', 'Lucida Console', monospace;
+  font-size: 1rem;
+  font-weight: 900;
+  letter-spacing: 2px;
+  color: #4aac58;
+  text-transform: uppercase;
+  image-rendering: pixelated;
+  text-shadow: 2px 2px 0 #0a3a1a, -1px -1px 0 #0a3a1a;
+}
 .hud-social-badge { font-size: 0.8rem; color: #ff9944; border-left: 1px solid #2a3a2a; padding-left: 12px; }
 
 .hud-coins-badge {
