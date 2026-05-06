@@ -1,4 +1,8 @@
-# 🏝️ Focus Island
+<div align="center">
+  <img src="client/public/previews/animals/animal-koala.png" alt="koala" width="80" />
+</div>
+
+# Focus Island
 
 > **Hackathon POC — Tom & Mehdi, 06/05/2026**
 
