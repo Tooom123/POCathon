@@ -34,9 +34,9 @@ body {
   width: 100%;
   overflow: hidden;
 }
-.lobby-banner:nth-child(1) { top: 4%; }
+.lobby-banner:nth-child(1) { top: 8%; transform: translateY(-50%); }
 .lobby-banner:nth-child(2) { top: 50%; transform: translateY(-50%); }
-.lobby-banner:nth-child(3) { bottom: 4%; }
+.lobby-banner:nth-child(3) { bottom: 8%; transform: translateY(50%); }
 
 .lobby-banner-track {
   display: flex;
