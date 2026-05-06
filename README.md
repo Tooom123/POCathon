@@ -1,7 +1,13 @@
 <p align="center">
-  <img src="client/public/previews/animals/animal-monkey.png" alt="monkey" height="120" />
-  <img src="client/public/previews/animals/animal-koala.png" alt="koala" height="120" />
-  <img src="client/public/previews/animals/animal-fox.png" alt="fox" height="120" />
+  <img src="client/public/previews/animals/animal-monkey.png" alt="monkey" height="80" />
+  <img src="client/public/previews/animals/animal-koala.png" alt="koala" height="80" />
+  <img src="client/public/previews/animals/animal-fox.png" alt="fox" height="80" />
+  <img src="client/public/previews/animals/animal-deer.png" alt="deer" height="80" />
+  <img src="client/public/previews/animals/animal-lion.png" alt="lion" height="80" />
+  <img src="client/public/previews/animals/animal-panda.png" alt="panda" height="80" />
+  <img src="client/public/previews/animals/animal-tiger.png" alt="tiger" height="80" />
+  <img src="client/public/previews/animals/animal-penguin.png" alt="penguin" height="80" />
+  <img src="client/public/previews/animals/animal-parrot.png" alt="parrot" height="80" />
 </p>
 <h1 align="center">Focus Island</h1>
 
