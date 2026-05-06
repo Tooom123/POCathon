@@ -186,11 +186,14 @@ export default function Animal({ animalId, slot, total, isFocusing, walkRadius, 
 
     const x = Math.cos(angle) * orbitRadius;
     const z = Math.sin(angle) * orbitRadius;
-    const y = isFlying
+    const targetY = isFlying
       ? GROUND_Y + FLYING_Y_OFFSET + Math.sin(t * 1.1 + slot) * 0.1
       : GROUND_Y;
 
-    g.position.set(x, y, z);
+    // Smooth Y for flying animals so they rise gradually at focus start
+    g.position.x = x;
+    g.position.z = z;
+    g.position.y += (targetY - g.position.y) * (isFlying ? 0.05 : 0.2);
 
     // Smoothly rotate toward tangent direction (rotY = -angle).
     // Don't snap on first frame so the body turns naturally.
