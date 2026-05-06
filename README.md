@@ -1,6 +1,6 @@
-# FocusIsland
+# 🏝️ Focus Island
 
-> Travaillez. Construisez votre île. Flexez.
+> **Hackathon POC — Tom & Mehdi, 06/05/2026**
 
 FocusIsland est un jeu de productivité multijoueur : chaque session de travail détectée sur votre machine se traduit en pièces, en animaux et en décorations sur votre île virtuelle. Rejoignez un lobby avec vos collègues ou amis, restez focus toute la journée, et comparez vos îles en fin de session. Le meilleur bosseur a la plus belle île.
 
@@ -120,3 +120,17 @@ Sans le tracker, aucune session productive n'est remontée → aucun coin géné
 2. Créez un lobby ou rejoignez-en un avec le code partagé par un ami.
 3. Travaillez. Le tracker détecte vos apps en arrière-plan et alimente votre balance.
 4. En fin de journée, revenez voir votre île — et celle des autres.
+
+---
+
+## Fonctionnalités du client
+
+- 🌍 **Monde 3D** — îles flottantes en Three.js, caméra libre, zoom, rotation automatique en focus
+- 🎨 **Biomes uniques** — 5 biomes par joueur (verdant, neige, désert, volcanique, sakura)
+- 🐾 **24 animaux** — déblocables via pièces, animations fluides
+- 🌿 **Décors** — plantes, arbres, champignons, fleurs avec revenus passifs
+- 🔥 **Focus social** — voir en temps réel qui travaille dans le lobby
+- 🗺️ **Minimap** — navigation rapide entre les îles
+- 🎵 **Musique lofi** — fade in/out automatique au démarrage du focus
+- 🌙 **Cycle jour/nuit** — basé sur le temps total de focus accumulé
+- 🏆 **Leaderboard** — classement live par temps de focus
