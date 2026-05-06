@@ -99,6 +99,7 @@ export default function Island({ player, position, isOwn, onClick }: IslandProps
   const { ownedAnimals, islandLevel } = useGameStore();
   const { isFocusing, name, islandIndex } = player;
 
+  const { shopOpen } = useGameStore();
   const islandInfo = getIslandLevel(isOwn ? islandLevel : 1);
   const { gridN, capacity } = islandInfo;
 
@@ -153,7 +154,7 @@ export default function Island({ player, position, isOwn, onClick }: IslandProps
         position={[0, ISLAND_SURFACE_Y + 2.2, 0]}
         center
         distanceFactor={12}
-        style={{ pointerEvents: 'none', userSelect: 'none' }}
+        style={{ pointerEvents: 'none', userSelect: 'none', visibility: shopOpen ? 'hidden' : 'visible' }}
       >
         <div className={`island-label ${isOwn ? 'island-label--own' : ''}`}>
           {name}{isFocusing ? ' 🔥' : ''}
