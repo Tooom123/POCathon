@@ -68,6 +68,7 @@ export default function HUD() {
             ? <span className="hud-lobby-name">{lobbyName}</span>
             : <><span className="hud-lobby-label">LOBBY</span><span className="hud-lobby-code">{lobbyCode}</span></>
           }
+          <CopyCodeBtn code={lobbyCode} />
         </div>
         {focusingCount > 0 && (
           <div className="hud-social-badge">🔥 {focusingCount} en focus</div>
@@ -117,5 +118,22 @@ export default function HUD() {
         </div>
       </div>
     </div>
+  );
+}
+
+function CopyCodeBtn({ code }: { code: string | null }) {
+  const [copied, setCopied] = useState(false);
+  if (!code) return null;
+
+  function handleCopy() {
+    navigator.clipboard.writeText(code!);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  }
+
+  return (
+    <button className="hud-copy-btn" onClick={handleCopy} title="Copier le code du lobby">
+      {copied ? '✓' : '⎘'}
+    </button>
   );
 }
