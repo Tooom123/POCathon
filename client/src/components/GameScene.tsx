@@ -184,6 +184,18 @@ export default function GameScene() {
     setCameraTarget(prev => prev === id ? null : id);
   }
 
+  // When focus starts, snap camera to own island so particles/spotlight/rotation kick in.
+  const wasFocusing = useRef(false);
+  useEffect(() => {
+    const focusing = !!me?.isFocusing;
+    if (focusing && !wasFocusing.current && storeMyId) {
+      setIsSpawn(false);
+      setCameraTarget(storeMyId);
+      visitIsland(storeMyId);
+    }
+    wasFocusing.current = focusing;
+  }, [me?.isFocusing, storeMyId]);
+
   return (
     <div style={{ width: '100vw', height: '100vh', position: 'relative', background: bgColor, transition: 'background 1s linear' }}>
       <Canvas camera={{ position: [0, 10, 22], fov: 50, near: 0.1, far: 1000 }} shadows>
