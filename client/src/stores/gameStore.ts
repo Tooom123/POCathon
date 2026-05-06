@@ -1,6 +1,14 @@
 import { create } from 'zustand';
-import { getTotalIncome, getIslandLevel } from '../animals';
+import { getTotalIncome, getIslandLevel, DecorModel } from '../animals';
 import socket from '../socket';
+
+export interface PlacedDecor {
+  id: DecorModel;
+  x: number;
+  z: number;
+  rotY: number;
+  scale: number;
+}
 
 export interface PlayerState {
   id: string;
@@ -24,6 +32,7 @@ interface GameStore {
   coins: number;
   ownedAnimals: string[];
   islandLevel: number;
+  placedDecors: PlacedDecor[];
   lastTickTime: number;
 
   shopOpen: boolean;
@@ -38,6 +47,8 @@ interface GameStore {
   tickCoins: () => void;
   buyAnimal: (animalId: string, cost: number) => boolean;
   removeAnimal: (index: number) => void;
+  buyDecor: (decorId: DecorModel, cost: number, scale: number) => boolean;
+  removeDecor: (index: number) => void;
   resetIsland: () => void;
   upgradeIsland: (toLevel: number) => boolean;
   setShopOpen: (open: boolean) => void;
@@ -55,8 +66,8 @@ function loadSaved() {
   }
 }
 
-function save(coins: number, ownedAnimals: string[], islandLevel: number) {
-  localStorage.setItem(SAVE_KEY, JSON.stringify({ coins, ownedAnimals, islandLevel }));
+function save(coins: number, ownedAnimals: string[], islandLevel: number, placedDecors: PlacedDecor[] = []) {
+  localStorage.setItem(SAVE_KEY, JSON.stringify({ coins, ownedAnimals, islandLevel, placedDecors }));
 }
 
 const saved = loadSaved();
@@ -71,6 +82,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   coins: saved.coins ?? 0,
   ownedAnimals: saved.ownedAnimals ?? ['bunny'],
   islandLevel: saved.islandLevel ?? 1,
+  placedDecors: saved.placedDecors ?? [],
   lastTickTime: Date.now(),
 
   setLobby: (code, myId, players) => set({ lobbyCode: code, myId, players }),
@@ -111,39 +123,62 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
 
   buyAnimal: (animalId, cost) => {
-    const { coins, ownedAnimals, islandLevel } = get();
+    const { coins, ownedAnimals, islandLevel, placedDecors } = get();
     const { capacity } = getIslandLevel(islandLevel);
     if (coins < cost || ownedAnimals.length >= capacity) return false;
     const nextAnimals = [...ownedAnimals, animalId];
     const nextCoins = coins - cost;
     set({ coins: nextCoins, ownedAnimals: nextAnimals });
-    save(nextCoins, nextAnimals, islandLevel);
+    save(nextCoins, nextAnimals, islandLevel, placedDecors);
     socket.emit('sync_state', { ownedAnimals: nextAnimals, islandLevel });
     return true;
   },
 
   removeAnimal: (index) => {
-    const { coins, ownedAnimals, islandLevel } = get();
+    const { coins, ownedAnimals, islandLevel, placedDecors } = get();
     const next = ownedAnimals.filter((_, i) => i !== index);
     set({ ownedAnimals: next });
-    save(coins, next, islandLevel);
+    save(coins, next, islandLevel, placedDecors);
     socket.emit('sync_state', { ownedAnimals: next, islandLevel });
   },
 
+  buyDecor: (decorId, cost, scale) => {
+    const { coins, ownedAnimals, islandLevel, placedDecors } = get();
+    if (coins < cost) return false;
+    // Random placement on a ring around the island (avoids overlap with center animals)
+    const angle = Math.random() * Math.PI * 2;
+    const r = 1.6 + Math.random() * 0.8;
+    const next: PlacedDecor[] = [
+      ...placedDecors,
+      { id: decorId, x: Math.cos(angle) * r, z: Math.sin(angle) * r, rotY: Math.random() * Math.PI * 2, scale },
+    ];
+    const nextCoins = coins - cost;
+    set({ coins: nextCoins, placedDecors: next });
+    save(nextCoins, ownedAnimals, islandLevel, next);
+    return true;
+  },
+
+  removeDecor: (index) => {
+    const { coins, ownedAnimals, islandLevel, placedDecors } = get();
+    const next = placedDecors.filter((_, i) => i !== index);
+    set({ placedDecors: next });
+    save(coins, ownedAnimals, islandLevel, next);
+  },
+
   resetIsland: () => {
-    const next = { coins: 0, ownedAnimals: ['bunny'], islandLevel: 1 };
+    const next = { coins: 0, ownedAnimals: ['bunny'], islandLevel: 1, placedDecors: [] as PlacedDecor[] };
     set(next);
-    save(next.coins, next.ownedAnimals, next.islandLevel);
+    save(next.coins, next.ownedAnimals, next.islandLevel, next.placedDecors);
     socket.emit('sync_state', { ownedAnimals: next.ownedAnimals, islandLevel: next.islandLevel });
   },
 
   upgradeIsland: (toLevel) => {
-    const { coins, ownedAnimals, islandLevel } = get();
+    const { coins, ownedAnimals, islandLevel, placedDecors } = get();
     const current = getIslandLevel(islandLevel);
     if (toLevel !== islandLevel + 1 || coins < current.upgradeCost) return false;
     const nextCoins = coins - current.upgradeCost;
     set({ coins: nextCoins, islandLevel: toLevel });
-    save(nextCoins, ownedAnimals, toLevel);
+    save(nextCoins, ownedAnimals, toLevel, placedDecors);
     socket.emit('sync_state', { ownedAnimals, islandLevel: toLevel });
     return true;
   },

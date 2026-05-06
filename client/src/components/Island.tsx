@@ -119,7 +119,7 @@ interface IslandProps {
 
 export default function Island({ player, position, isOwn, onClick }: IslandProps) {
   const groupRef = useRef<THREE.Group>(null);
-  const { ownedAnimals, islandLevel, shopOpen } = useGameStore();
+  const { ownedAnimals, islandLevel, shopOpen, placedDecors } = useGameStore();
   const { isFocusing, name, islandIndex, id: playerId } = player;
 
   const displayLevel = isOwn ? islandLevel : (player.islandLevel ?? 1);
@@ -187,6 +187,13 @@ export default function Island({ player, position, isOwn, onClick }: IslandProps
         </group>
         <group>
           {transformedDecors.map((def, i) => <DecorInstance key={i} def={def} biome={biome} />)}
+          {isOwn && placedDecors.map((d, i) => (
+            <DecorInstance
+              key={`placed-${i}`}
+              def={{ model: d.id, x: d.x, z: d.z, rotY: d.rotY, scale: d.scale, surfaceY: 1.0 }}
+              biome={biome}
+            />
+          ))}
         </group>
 
         {biome.ambientParticle !== 'none' && (

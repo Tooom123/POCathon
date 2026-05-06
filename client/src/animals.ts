@@ -82,6 +82,29 @@ export function getTotalIncome(owned: string[]): number {
   }, 0);
 }
 
+// ─── Decor catalog ────────────────────────────────────────────────────────
+export type DecorModel = 'tree-pine' | 'flowers-tall' | 'mushrooms' | 'plant';
+
+export interface DecorItem {
+  id: DecorModel;
+  name: string;
+  emoji: string;
+  cost: number;
+  scale: number;       // visual scale on island
+  unlockSeconds: number;
+}
+
+export const SHOP_DECORS: DecorItem[] = [
+  { id: 'plant',        name: 'Plante',     emoji: '🌿', cost: 50,    scale: 0.7,  unlockSeconds: 0     },
+  { id: 'flowers-tall', name: 'Fleurs',     emoji: '🌷', cost: 200,   scale: 0.8,  unlockSeconds: 0     },
+  { id: 'mushrooms',    name: 'Champignons',emoji: '🍄', cost: 500,   scale: 0.8,  unlockSeconds: 60    },
+  { id: 'tree-pine',    name: 'Sapin',      emoji: '🌲', cost: 1500,  scale: 1.25, unlockSeconds: 240   },
+];
+
+export function getDecorItem(id: DecorModel): DecorItem | undefined {
+  return SHOP_DECORS.find((d) => d.id === id);
+}
+
 export function formatCoins(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
   if (n >= 1_000)     return `${(n / 1_000).toFixed(1)}K`;

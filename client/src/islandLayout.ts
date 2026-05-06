@@ -66,9 +66,9 @@ const gblol = (x: number, z: number, r = 0): BlockDef => ({ model: 'block-grass-
 const gblong= (x: number, z: number, r = 0): BlockDef => ({ model: 'block-grass-long',       x, y: 0, z, rotY: r });
 const gbclo = (x: number, z: number, r = 0): BlockDef => ({ model: 'block-grass-corner-low', x, y: 0, z, rotY: r });
 
-const tree   = (x: number, z: number, r = 0): DecorDef => ({ model: 'tree-pine',    x, z, surfaceY: SURFACE_Y_FULL, scale: 0.75, rotY: r });
-const flower = (x: number, z: number, sy = SURFACE_Y_FULL, r = 0): DecorDef => ({ model: 'flowers-tall', x, z, surfaceY: sy, scale: 0.5, rotY: r });
-const mush   = (x: number, z: number, sy = SURFACE_Y_LOW,  r = 0): DecorDef => ({ model: 'mushrooms',    x, z, surfaceY: sy, scale: 0.5, rotY: r });
+const tree   = (x: number, z: number, r = 0): DecorDef => ({ model: 'tree-pine',    x, z, surfaceY: SURFACE_Y_FULL, scale: 1.25, rotY: r });
+const flower = (x: number, z: number, sy = SURFACE_Y_FULL, r = 0): DecorDef => ({ model: 'flowers-tall', x, z, surfaceY: sy, scale: 0.7, rotY: r });
+const mush   = (x: number, z: number, sy = SURFACE_Y_LOW,  r = 0): DecorDef => ({ model: 'mushrooms',    x, z, surfaceY: sy, scale: 0.7, rotY: r });
 
 // ── Level 1 ── 2×2 large blocks (peninsula, one corner cut to low) ─────────
 // Main surface: 4 BL tiles = 4.164 × 4.164 → walkRadius ~1.8 unscaled

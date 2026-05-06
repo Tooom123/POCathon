@@ -109,7 +109,9 @@ export default function Animal({ animalId, slot, total, isFocusing, walkRadius, 
   const { actions, mixer } = useAnimations(animations, clonedScene.current);
 
   // Each animal orbits at a fixed radius, offset by slot
-  const orbitRadius = walkRadius * (0.38 + (slot % 3) * 0.18);
+  // Max ratio kept low (≤0.6) so animals stay safely inside the square block surface
+  // even at diagonal angles where the available radius shrinks by ~1/√2.
+  const orbitRadius = walkRadius * (0.30 + (slot % 3) * 0.13);
   // Base angle so animals start evenly distributed
   const baseAngle = (slot / Math.max(total, 1)) * Math.PI * 2;
   // Slightly different speed per slot so they don't clump

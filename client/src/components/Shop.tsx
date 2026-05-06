@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import { useGameStore } from '../stores/gameStore';
-import { SHOP_ANIMALS, ISLAND_LEVELS, RARITY_COLORS, RARITY_LABELS, formatCoins, getIslandLevel } from '../animals';
+import { SHOP_ANIMALS, SHOP_DECORS, ISLAND_LEVELS, RARITY_COLORS, RARITY_LABELS, formatCoins, getIslandLevel } from '../animals';
 
-type Tab = 'animals' | 'island';
+type Tab = 'animals' | 'island' | 'decor';
 
 export default function Shop() {
-  const { coins, ownedAnimals, islandLevel, buyAnimal, upgradeIsland, setShopOpen, players, myId } = useGameStore();
+  const { coins, ownedAnimals, islandLevel, buyAnimal, upgradeIsland, buyDecor, removeDecor, placedDecors, setShopOpen, players, myId } = useGameStore();
   const [tab, setTab] = useState<Tab>('animals');
   const [shakeId, setShakeId] = useState<string | null>(null);
 
@@ -52,6 +52,9 @@ export default function Shop() {
             </button>
             <button className={`shop-tab ${tab === 'island' ? 'shop-tab--active' : ''}`} onClick={() => setTab('island')}>
               🏝️ Île
+            </button>
+            <button className={`shop-tab ${tab === 'decor' ? 'shop-tab--active' : ''}`} onClick={() => setTab('decor')}>
+              🌲 Décor
             </button>
           </div>
           <div className="shop-coins">🪙 {formatCoins(coins)}</div>
@@ -190,6 +193,71 @@ export default function Shop() {
                 );
               })}
             </div>
+          </div>
+        )}
+
+        {/* DECOR TAB */}
+        {tab === 'decor' && (
+          <div className="shop-grid">
+            {SHOP_DECORS.map((decor) => {
+              const isUnlocked = totalFocusSeconds >= decor.unlockSeconds;
+              const canAfford = coins >= decor.cost;
+              const owned = placedDecors.filter((d) => d.id === decor.id).length;
+
+              return (
+                <div key={decor.id} className={`shop-card ${!isUnlocked ? 'shop-card--locked' : ''}`}>
+                  <div className="shop-card-img-wrap">
+                    <div className="shop-card-emoji" style={{ fontSize: '2.6rem' }}>{decor.emoji}</div>
+                    {!isUnlocked && <div className="shop-card-lock-overlay">🔒</div>}
+                    {owned > 0 && <div className="shop-card-owned-badge">×{owned}</div>}
+                  </div>
+                  <div className="shop-card-name">{decor.name}</div>
+                  {!isUnlocked ? (
+                    <div className="shop-card-lock-msg">
+                      🔒 Focus encore {fmtSec(decor.unlockSeconds - totalFocusSeconds)}
+                    </div>
+                  ) : (
+                    <>
+                      <button
+                        className={`shop-btn-buy ${!canAfford ? 'shop-btn-buy--disabled' : ''} ${shakeId === `decor-${decor.id}` ? 'shake' : ''}`}
+                        onClick={() => {
+                          const ok = buyDecor(decor.id, decor.cost, decor.scale);
+                          if (!ok) {
+                            setShakeId(`decor-${decor.id}`);
+                            setTimeout(() => setShakeId(null), 450);
+                          }
+                        }}
+                      >
+                        🪙 {formatCoins(decor.cost)}
+                      </button>
+                      {!canAfford && shakeId === `decor-${decor.id}` && (
+                        <div className="shop-card-error">Pas assez de coins</div>
+                      )}
+                    </>
+                  )}
+                </div>
+              );
+            })}
+            {placedDecors.length > 0 && (
+              <div className="shop-card" style={{ gridColumn: '1 / -1', alignItems: 'flex-start' }}>
+                <div className="shop-card-name" style={{ alignSelf: 'center' }}>Décors placés ({placedDecors.length})</div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, padding: 4 }}>
+                  {placedDecors.map((d, i) => (
+                    <button
+                      key={i}
+                      onClick={() => removeDecor(i)}
+                      title="Cliquer pour supprimer"
+                      style={{
+                        background: '#1a2a1a', border: '1px solid #2a3a2a', color: '#c0d8c0',
+                        padding: '4px 8px', borderRadius: 4, cursor: 'pointer', fontSize: '0.75rem',
+                      }}
+                    >
+                      🗑 {d.id}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
