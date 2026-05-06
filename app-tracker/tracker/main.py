@@ -34,11 +34,18 @@ def _make_poller():
 
 
 @app.command()
-def start() -> None:
+def start(
+    player_name: str = typer.Option(None, "--player", "-p", envvar="FOCUS_PLAYER_NAME", help="Name shown in the game lobby"),
+    no_game_sync: bool = typer.Option(False, "--no-game-sync", help="Disable automatic focus sync to the game server"),
+) -> None:
     """Start polling the active application in the foreground (Ctrl-C to stop)."""
     poller = _make_poller()
     classifier = Classifier()
     conn = get_connection()
+
+    from tracker import focus_sync
+    if not no_game_sync:
+        focus_sync.start_background(player_name)
 
     current_app: str = ""
     session_start: datetime = datetime.now()
@@ -96,6 +103,10 @@ def start() -> None:
             _flush(now)
             current_app = active
             session_start = now
+
+        if not no_game_sync:
+            category = classifier.classify(active) if active else "unknown"
+            focus_sync.notify(category == "productive")
 
         if server_url and current_app:
             live = Session(
