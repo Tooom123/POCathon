@@ -70,7 +70,7 @@ export default function Island({ player, position, isOwn, onClick }: IslandProps
   const { isFocusing, name, islandIndex } = player;
   const { shopOpen } = useGameStore();
 
-  const displayLevel = isOwn ? islandLevel : 1;
+  const displayLevel = isOwn ? islandLevel : (player.islandLevel ?? 1);
   const islandInfo = getIslandLevel(displayLevel);
   const { capacity } = islandInfo;
   const layout = useMemo(() => getLayout(displayLevel), [displayLevel]);
@@ -78,9 +78,11 @@ export default function Island({ player, position, isOwn, onClick }: IslandProps
   const FALLBACK = ['bunny','cat','dog','chick','penguin','fox','panda','koala'];
   const animalsToShow = isOwn
     ? ownedAnimals.slice(0, capacity)
-    : Array.from({ length: Math.min(player.unlockedAnimals, 4) }, (_, i) =>
-        FALLBACK[(islandIndex * 3 + i) % FALLBACK.length]
-      );
+    : (player.ownedAnimals && player.ownedAnimals.length > 0
+        ? player.ownedAnimals.slice(0, capacity)
+        : Array.from({ length: Math.min(player.unlockedAnimals, 4) }, (_, i) =>
+            FALLBACK[(islandIndex * 3 + i) % FALLBACK.length]
+          ));
 
   useFrame(({ clock }) => {
     if (!groupRef.current) return;

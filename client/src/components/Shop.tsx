@@ -7,6 +7,23 @@ type Tab = 'animals' | 'island';
 export default function Shop() {
   const { coins, ownedAnimals, islandLevel, buyAnimal, upgradeIsland, setShopOpen, players, myId } = useGameStore();
   const [tab, setTab] = useState<Tab>('animals');
+  const [shakeId, setShakeId] = useState<string | null>(null);
+
+  function tryBuyAnimal(animalId: string, cost: number) {
+    const ok = buyAnimal(animalId, cost);
+    if (!ok) {
+      setShakeId(animalId);
+      setTimeout(() => setShakeId(null), 450);
+    }
+  }
+
+  function tryUpgradeIsland(toLevel: number) {
+    const ok = upgradeIsland(toLevel);
+    if (!ok) {
+      setShakeId(`island-${toLevel}`);
+      setTimeout(() => setShakeId(null), 450);
+    }
+  }
 
   const me = myId ? players[myId] : null;
 
@@ -109,9 +126,8 @@ export default function Shop() {
                     <div className="shop-card-lock-msg cap-full">Île pleine</div>
                   ) : (
                     <button
-                      className={`shop-btn-buy ${!canAfford ? 'shop-btn-buy--disabled' : ''}`}
-                      onClick={() => buyAnimal(animal.id, animal.cost)}
-                      disabled={!canAfford}
+                      className={`shop-btn-buy ${!canAfford ? 'shop-btn-buy--disabled' : ''} ${shakeId === animal.id ? 'shake' : ''}`}
+                      onClick={() => tryBuyAnimal(animal.id, animal.cost)}
                     >
                       🪙 {formatCoins(animal.cost)}
                     </button>
@@ -152,9 +168,8 @@ export default function Shop() {
                       <div className="upgrade-done">✓ Débloqué</div>
                     ) : isNext ? (
                       <button
-                        className={`shop-btn-buy upgrade-btn ${!canAfford ? 'shop-btn-buy--disabled' : ''}`}
-                        onClick={() => upgradeIsland(lvl.level)}
-                        disabled={!canAfford}
+                        className={`shop-btn-buy upgrade-btn ${!canAfford ? 'shop-btn-buy--disabled' : ''} ${shakeId === `island-${lvl.level}` ? 'shake' : ''}`}
+                        onClick={() => tryUpgradeIsland(lvl.level)}
                       >
                         🪙 {formatCoins(prevLevel.upgradeCost)}
                       </button>

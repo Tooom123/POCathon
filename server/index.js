@@ -18,21 +18,42 @@ function generateCode() {
 // Animal unlock thresholds in seconds
 const ANIMAL_THRESHOLDS = [0, 60, 300, 600, 1200, 1800, 3600, 5400, 7200, 10800];
 
+// Income per second per animal (mirrors client animals.ts)
+const ANIMAL_INCOME = {
+  chick: 0.5, bunny: 1, pig: 2, cat: 3.5,
+  dog: 7, penguin: 12, beaver: 20, fox: 32,
+  panda: 55, koala: 90, deer: 150, monkey: 240,
+  parrot: 400, tiger: 650, lion: 1000,
+  elephant: 1800, giraffe: 3000, polar: 5000,
+};
+
 function getUnlockedCount(totalSeconds) {
   return ANIMAL_THRESHOLDS.filter(t => totalSeconds >= t).length;
+}
+
+function computeIncome(ownedAnimals) {
+  return (ownedAnimals || []).reduce((sum, id) => sum + (ANIMAL_INCOME[id] ?? 0), 0);
 }
 
 io.on('connection', (socket) => {
   console.log('connected', socket.id);
 
+  // Heartbeat — client must respond within 35 s or be dropped
+  const heartbeat = setInterval(() => {
+    socket.emit('ping');
+  }, 30000);
+
+  socket.on('pong_ack', () => { /* still alive */ });
+
   // Create or join lobby
-  socket.on('join_lobby', ({ code, playerName }) => {
+  socket.on('join_lobby', ({ code, playerName, ownedAnimals, islandLevel }) => {
     let lobbyCode = code ? code.toUpperCase() : generateCode();
     if (!lobbies[lobbyCode]) {
       lobbies[lobbyCode] = { players: {} };
     }
 
     const lobby = lobbies[lobbyCode];
+    const incomePerSec = computeIncome(ownedAnimals);
     lobby.players[socket.id] = {
       id: socket.id,
       name: playerName || 'Joueur',
@@ -41,6 +62,9 @@ io.on('connection', (socket) => {
       focusStartedAt: null,
       unlockedAnimals: 1,
       islandIndex: Object.keys(lobby.players).length,
+      islandLevel: islandLevel ?? 1,
+      ownedAnimals: ownedAnimals ?? ['bunny'],
+      incomePerSec,
     };
 
     socket.join(lobbyCode);
@@ -55,6 +79,18 @@ io.on('connection', (socket) => {
 
     socket.to(lobbyCode).emit('player_joined', lobby.players[socket.id]);
     console.log(`${playerName} joined lobby ${lobbyCode}`);
+  });
+
+  // Client can update its island/animal state
+  socket.on('sync_state', ({ ownedAnimals, islandLevel }) => {
+    const { lobbyCode } = socket.data;
+    if (!lobbyCode || !lobbies[lobbyCode]) return;
+    const player = lobbies[lobbyCode].players[socket.id];
+    if (!player) return;
+    player.ownedAnimals = ownedAnimals ?? player.ownedAnimals;
+    player.islandLevel = islandLevel ?? player.islandLevel;
+    player.incomePerSec = computeIncome(player.ownedAnimals);
+    io.to(lobbyCode).emit('player_updated', player);
   });
 
   // Start focus session
@@ -101,12 +137,24 @@ io.on('connection', (socket) => {
       liveTotal,
       liveUnlocked,
       isFocusing: true,
+      incomePerSec: player.incomePerSec,
     });
   });
 
   socket.on('disconnect', () => {
+    clearInterval(heartbeat);
     const { lobbyCode } = socket.data;
     if (!lobbyCode || !lobbies[lobbyCode]) return;
+
+    // Commit any in-progress focus session before removing
+    const player = lobbies[lobbyCode].players[socket.id];
+    if (player?.isFocusing && player.focusStartedAt) {
+      const elapsed = Math.floor((Date.now() - player.focusStartedAt) / 1000);
+      player.totalWorkSeconds += elapsed;
+      player.isFocusing = false;
+      player.focusStartedAt = null;
+    }
+
     delete lobbies[lobbyCode].players[socket.id];
     if (Object.keys(lobbies[lobbyCode].players).length === 0) {
       delete lobbies[lobbyCode];

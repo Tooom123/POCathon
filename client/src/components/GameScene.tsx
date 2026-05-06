@@ -1,5 +1,5 @@
 import { Canvas, useThree, useFrame } from '@react-three/fiber';
-import { OrbitControls, Stars } from '@react-three/drei';
+import { OrbitControls, Stars, useProgress } from '@react-three/drei';
 import { Suspense, useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { useGameStore, PlayerState } from '../stores/gameStore';
@@ -133,10 +133,22 @@ function FocusTicker() {
 }
 
 export default function GameScene() {
-  const { players, visitingIslandId, visitIsland, shopOpen } = useGameStore();
+  const { players, visitingIslandId, visitIsland, shopOpen, myId } = useGameStore();
   const visitedPlayer = visitingIslandId ? players[visitingIslandId] : null;
 
-  const { myId: storeMyId } = useGameStore();
+  const storeMyId = myId;
+
+  // Day → night transition based on cumulative focus minutes (capped at 60 min for full night)
+  const me = myId ? players[myId] : null;
+  const sessionElapsed = me?.isFocusing && me.focusStartedAt
+    ? Math.floor((Date.now() - me.focusStartedAt) / 1000) : 0;
+  const totalSec = (me?.totalWorkSeconds ?? 0) + sessionElapsed;
+  const nightT = Math.min(totalSec / 3600, 1); // 0 = day, 1 = full night
+  const bgColor = nightT < 0.5
+    ? `rgb(${Math.floor(20 - nightT * 30)}, ${Math.floor(30 - nightT * 40)}, ${Math.floor(60 - nightT * 70)})`
+    : `rgb(${Math.floor(5)}, ${Math.floor(8)}, ${Math.floor(20 + (1 - nightT) * 10)})`;
+  const ambientIntensity = 1.2 - nightT * 0.6;
+  const sunIntensity = 1.5 - nightT * 1.1;
 
   // Track island world positions so CameraController can target them
   const [islandPositions, setIslandPositions] = useState<Record<string, [number, number, number]>>({});
@@ -168,14 +180,14 @@ export default function GameScene() {
   }
 
   return (
-    <div style={{ width: '100vw', height: '100vh', position: 'relative', background: '#0a0a1a' }}>
+    <div style={{ width: '100vw', height: '100vh', position: 'relative', background: bgColor, transition: 'background 1s linear' }}>
       <Canvas camera={{ position: [0, 10, 22], fov: 50, near: 0.1, far: 1000 }} shadows>
         <Suspense fallback={null}>
           <Stars radius={120} depth={60} count={4000} factor={4} />
 
-          <ambientLight intensity={1.2} color="#cceeff" />
-          <directionalLight position={[8, 16, 8]}  intensity={1.5} color="#fff8ee" castShadow />
-          <directionalLight position={[-8, 10, -4]} intensity={0.6} color="#aaccff" />
+          <ambientLight intensity={ambientIntensity} color="#cceeff" />
+          <directionalLight position={[8, 16, 8]}  intensity={sunIntensity} color="#fff8ee" castShadow />
+          <directionalLight position={[-8, 10, -4]} intensity={0.6 - nightT * 0.3} color="#aaccff" />
 
           <IslandGrid onIslandClick={handleIslandClick} />
           <FocusTicker />
@@ -185,6 +197,7 @@ export default function GameScene() {
         </Suspense>
       </Canvas>
 
+      <LoadingOverlay />
       <Leaderboard />
       <HUD />
       {shopOpen && <Shop />}
@@ -196,6 +209,20 @@ export default function GameScene() {
           onClose={() => { visitIsland(null); setCameraTarget(null); }}
         />
       )}
+    </div>
+  );
+}
+
+function LoadingOverlay() {
+  const { active, progress } = useProgress();
+  if (!active && progress >= 100) return null;
+  return (
+    <div className="loading-overlay">
+      <div className="loading-card">
+        <div className="loading-title">🏝️ Focus Island</div>
+        <div className="loading-bar"><div className="loading-bar-fill" style={{ width: `${progress}%` }} /></div>
+        <div className="loading-pct">{Math.floor(progress)}%</div>
+      </div>
     </div>
   );
 }

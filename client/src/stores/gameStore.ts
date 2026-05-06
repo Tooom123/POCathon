@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { getTotalIncome, getIslandLevel } from '../animals';
+import socket from '../socket';
 
 export interface PlayerState {
   id: string;
@@ -9,6 +10,9 @@ export interface PlayerState {
   focusStartedAt: number | null;
   unlockedAnimals: number;
   islandIndex: number;
+  islandLevel: number;
+  ownedAnimals: string[];
+  incomePerSec: number;
 }
 
 interface GameStore {
@@ -28,7 +32,7 @@ interface GameStore {
   addPlayer: (player: PlayerState) => void;
   removePlayer: (id: string) => void;
   updatePlayer: (player: PlayerState) => void;
-  updatePlayerTick: (id: string, liveTotal: number, liveUnlocked: number) => void;
+  updatePlayerTick: (id: string, liveTotal: number, liveUnlocked: number, incomePerSec?: number) => void;
   visitIsland: (id: string | null) => void;
 
   tickCoins: () => void;
@@ -64,7 +68,6 @@ export const useGameStore = create<GameStore>((set, get) => ({
   visitingIslandId: null,
   shopOpen: false,
 
-  // Start with 1 bunny so the player can immediately earn coins
   coins: saved.coins ?? 0,
   ownedAnimals: saved.ownedAnimals ?? ['bunny'],
   islandLevel: saved.islandLevel ?? 1,
@@ -74,11 +77,21 @@ export const useGameStore = create<GameStore>((set, get) => ({
   addPlayer: (player) => set((s) => ({ players: { ...s.players, [player.id]: player } })),
   removePlayer: (id) => set((s) => { const { [id]: _, ...rest } = s.players; return { players: rest }; }),
   updatePlayer: (player) => set((s) => ({ players: { ...s.players, [player.id]: player } })),
-  updatePlayerTick: (id, liveTotal, liveUnlocked) =>
+  updatePlayerTick: (id, liveTotal, liveUnlocked, incomePerSec) =>
     set((s) => {
       const p = s.players[id];
       if (!p) return {};
-      return { players: { ...s.players, [id]: { ...p, totalWorkSeconds: liveTotal, unlockedAnimals: liveUnlocked } } };
+      return {
+        players: {
+          ...s.players,
+          [id]: {
+            ...p,
+            totalWorkSeconds: liveTotal,
+            unlockedAnimals: liveUnlocked,
+            ...(incomePerSec !== undefined ? { incomePerSec } : {}),
+          },
+        },
+      };
     }),
   visitIsland: (id) => set({ visitingIslandId: id }),
 
@@ -86,9 +99,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const { lastTickTime, ownedAnimals, coins, islandLevel, players, myId } = get();
     const now = Date.now();
     const me = myId ? players[myId] : null;
-    // Income only accumulates during an active focus session
     if (!me?.isFocusing) {
-      set({ lastTickTime: now }); // reset to avoid burst when focus starts
+      set({ lastTickTime: now });
       return;
     }
     const dt = Math.min((now - lastTickTime) / 1000, 5);
@@ -106,6 +118,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const nextCoins = coins - cost;
     set({ coins: nextCoins, ownedAnimals: nextAnimals });
     save(nextCoins, nextAnimals, islandLevel);
+    socket.emit('sync_state', { ownedAnimals: nextAnimals, islandLevel });
     return true;
   },
 
@@ -114,12 +127,14 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const next = ownedAnimals.filter((_, i) => i !== index);
     set({ ownedAnimals: next });
     save(coins, next, islandLevel);
+    socket.emit('sync_state', { ownedAnimals: next, islandLevel });
   },
 
   resetIsland: () => {
     const next = { coins: 0, ownedAnimals: ['bunny'], islandLevel: 1 };
     set(next);
     save(next.coins, next.ownedAnimals, next.islandLevel);
+    socket.emit('sync_state', { ownedAnimals: next.ownedAnimals, islandLevel: next.islandLevel });
   },
 
   upgradeIsland: (toLevel) => {
@@ -129,8 +144,20 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const nextCoins = coins - current.upgradeCost;
     set({ coins: nextCoins, islandLevel: toLevel });
     save(nextCoins, ownedAnimals, toLevel);
+    socket.emit('sync_state', { ownedAnimals, islandLevel: toLevel });
     return true;
   },
 
   setShopOpen: (open) => set({ shopOpen: open }),
 }));
+
+// Commit focus session on page close
+if (typeof window !== 'undefined') {
+  window.addEventListener('beforeunload', () => {
+    const { myId, players } = useGameStore.getState();
+    const me = myId ? players[myId] : null;
+    if (me?.isFocusing) {
+      socket.emit('stop_focus');
+    }
+  });
+}

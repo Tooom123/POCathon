@@ -736,3 +736,44 @@ body {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.3; }
 }
+
+/* ─── Shake animation (insufficient funds feedback) ─── */
+@keyframes shake-feedback {
+  0%, 100% { transform: translateX(0); background:#cc4422 !important; color:#fff !important; }
+  20% { transform: translateX(-4px); }
+  40% { transform: translateX(4px); }
+  60% { transform: translateX(-3px); }
+  80% { transform: translateX(2px); }
+}
+.shake { animation: shake-feedback 0.45s ease; }
+
+/* ─── Loading overlay ─── */
+.loading-overlay {
+  position: fixed; inset: 0;
+  background: #060a12;
+  z-index: 1000;
+  display: flex; align-items: center; justify-content: center;
+}
+.loading-card {
+  background: #0d1117;
+  border: 2px solid #2a3a2a;
+  border-bottom: 4px solid #060a06;
+  border-radius: 8px;
+  padding: 24px 32px;
+  display: flex; flex-direction: column; align-items: center; gap: 14px;
+  min-width: 260px;
+}
+.loading-title { font-size: 1.1rem; font-weight: 800; color: #4aac58; letter-spacing: 1px; }
+.loading-bar {
+  width: 100%; height: 10px;
+  background: #1a2a1a;
+  border: 1px solid #2a3a2a;
+  border-radius: 4px;
+  overflow: hidden;
+}
+.loading-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #4aac58, #5dcc6e);
+  transition: width 0.2s ease;
+}
+.loading-pct { font-size: 0.8rem; color: #9ab09a; font-weight: 700; }
