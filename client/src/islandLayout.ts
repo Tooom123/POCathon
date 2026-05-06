@@ -97,30 +97,41 @@ function level1(): IslandLayout {
   };
 }
 
-// ── Level 2 ── 3×2 large blocks (L-shape) ─────────────────────────────────
-// 6 large blocks: 3 wide, 2 deep, then extra block south-west
+// ── Level 2 ── 3×2 large blocks + two standard blocks (L-shape) ───────────
+// Core: 3 wide × 2 deep large blocks; right-bottom replaced by 2 standard blocks
+// East column: gbl(BL, -hh) right edge at BL+BL/2=3.123; gb right edge at BL+B=3.164
+// Low east shelf flush with gb right edge: center at BL+B+BL/2=4.205, but gap!
+// Fix: attach low shelf to gb right edge = BL+B, center at BL+B+BL/2; gap only 0.04
+// Simplify: drop isolated corner-low, keep east shelf only alongside gb tiles
 function level2(): IslandLayout {
-  const hh = BL / 2;
+  const hh = BL / 2; // 1.041
+  // gb at x=BL+B/2=3.123, spans [BL, BL+B]=[3.082, 4.246] — wait, B=1.082
+  // BL=2.082, hh=1.041
+  // gbl(BL,-hh) center=(2.082,-1.041), spans x=[1.041,3.123]
+  // gb(BL+B/2, hh) center=(3.623, 1.041), spans x=[3.082,4.164] — 0.041 gap from gbl right edge 3.123!
+  // Fix: place gb flush: center x = BL + BL/2 + B/2 = 2.082+1.041+0.541 = 3.664...
+  // Actually: gb left edge must touch gbl right edge (3.123): gb center = 3.123 + B/2 = 3.664
+  const gbEastX = BL + BL / 2 + B / 2; // 3.664 — flush with gbl(BL,_) right edge
   return {
     blocks: [
-      // 3×2 core
+      // 3×2 large block core (top 2 rows)
       gbl(-BL, -hh), gbl(0, -hh), gbl(BL, -hh),
       gbl(-BL,  hh), gbl(0,  hh),
-      // right-bottom replaced by standard blocks for irregular outline
-      gb(BL + B / 2, hh), gb(BL + B / 2, hh + B),
+      // Two standard blocks flush against right edge of gbl(BL,_)
+      gb(gbEastX, -hh), gb(gbEastX, hh),
       // Low shelf south
       gblol(-BL, hh + BL / 2),
       gblol(0,   hh + BL / 2),
-      // Low shelf east
-      gblol(BL + B + BL / 2, -hh),
-      gblo(BL + B + BL / 2, hh + B / 2),
-      // Low corner caps
+      // Low shelf east (flush against gb right edge)
+      gblol(gbEastX + B / 2 + BL / 2, -hh),
+      gblol(gbEastX + B / 2 + BL / 2,  hh),
+      // Low corner cap SW
       gbclo(-BL - BL / 2, hh + BL / 2, H),
-      gbclo(BL + B + BL / 2, hh + B + BL / 2, H * 2),
     ],
     decors: [
       tree(-BL + 0.2, -hh + 0.2, -0.3),
-      flower(BL - 0.3, hh - 0.3, SURFACE_Y_FULL, 0.8),
+      // Flower inside gbl(0, hh): center (0, 1.041), spans x=[-1.041,1.041], z=[0,2.082]
+      flower(0.5, hh - 0.4, SURFACE_Y_FULL, 0.8),
     ],
     walkRadius: BL * 1.1,
   };

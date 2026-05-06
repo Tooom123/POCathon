@@ -132,7 +132,7 @@ export default function Island({ player, position, isOwn, onClick }: IslandProps
         </div>
       </Html>
 
-      <mesh visible={false} onClick={onClick}>
+<mesh visible={false} onClick={onClick}>
         <boxGeometry args={[islandSize + 2, 8, islandSize + 2]} />
         <meshBasicMaterial />
       </mesh>
