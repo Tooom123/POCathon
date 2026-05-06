@@ -65,12 +65,12 @@ export const BIOMES: Record<BiomeId, Biome> = {
   volcanic: {
     id: 'volcanic',
     label: 'Volcanique',
-    blockTint: '#7a3a2a',  // dark red-brown
+    blockTint: '#c45a3a',  // warm orange-red, brighter
     useSnowBlocks: false,
-    lightColor: '#cc5533',
-    lightFocusColor: '#ff8855',
+    lightColor: '#ee7755',
+    lightFocusColor: '#ffaa77',
     treeModel: 'tree-pine',
-    treeTint: '#3a2a1a',  // burnt/dark
+    treeTint: '#7a4a2a',  // warm burnt
     ambientParticle: 'embers',
     ambientParticleColor: ['#ff5522', '#ff8844', '#ffcc66'],
   },

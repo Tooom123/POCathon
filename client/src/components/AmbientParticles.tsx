@@ -24,11 +24,11 @@ interface KindParams {
 }
 
 const KIND_PARAMS: Record<Kind, KindParams> = {
-  snow:    { vy:[0.20,0.40], swayAmp:[0.20,0.45], swaySpeed:[0.3,0.7], scale:0.10, baseOpacity:0.50, focusOpacity:0.85, rises:false, rotates:false },
-  pollen:  { vy:[0.05,0.15], swayAmp:[0.30,0.55], swaySpeed:[0.4,0.9], scale:0.08, baseOpacity:0.35, focusOpacity:0.70, rises:false, rotates:false },
-  embers:  { vy:[0.40,0.70], swayAmp:[0.10,0.25], swaySpeed:[0.5,1.1], scale:0.07, baseOpacity:0.55, focusOpacity:0.90, rises:true,  rotates:false },
-  petals:  { vy:[0.18,0.35], swayAmp:[0.35,0.60], swaySpeed:[0.5,1.0], scale:0.13, baseOpacity:0.45, focusOpacity:0.85, rises:false, rotates:true  },
-  leaves:  { vy:[0.25,0.60], swayAmp:[0.30,0.70], swaySpeed:[0.6,1.4], scale:0.18, baseOpacity:0.30, focusOpacity:0.85, rises:false, rotates:true  },
+  snow:    { vy:[0.20,0.40], swayAmp:[0.20,0.45], swaySpeed:[0.3,0.7], scale:0.10, baseOpacity:0, focusOpacity:0.85, rises:false, rotates:false },
+  pollen:  { vy:[0.05,0.15], swayAmp:[0.30,0.55], swaySpeed:[0.4,0.9], scale:0.08, baseOpacity:0, focusOpacity:0.70, rises:false, rotates:false },
+  embers:  { vy:[0.40,0.70], swayAmp:[0.10,0.25], swaySpeed:[0.5,1.1], scale:0.07, baseOpacity:0, focusOpacity:0.90, rises:true,  rotates:false },
+  petals:  { vy:[0.18,0.35], swayAmp:[0.35,0.60], swaySpeed:[0.5,1.0], scale:0.13, baseOpacity:0, focusOpacity:0.85, rises:false, rotates:true  },
+  leaves:  { vy:[0.25,0.60], swayAmp:[0.30,0.70], swaySpeed:[0.6,1.4], scale:0.18, baseOpacity:0, focusOpacity:0.85, rises:false, rotates:true  },
 };
 
 /**
@@ -63,13 +63,31 @@ export default function AmbientParticles({ kind, active, radius, colors, count =
     if (meshRef.current.instanceColor) meshRef.current.instanceColor.needsUpdate = true;
   }, [data]);
 
+  // Track previous active state so we can reset positions on a new focus session
+  const prevActive = useRef(false);
+
   useFrame((_, delta) => {
     if (!meshRef.current || !matRef.current) return;
 
     const target = active ? params.focusOpacity : params.baseOpacity;
-    matRef.current.opacity += (target - matRef.current.opacity) * 0.05;
+    matRef.current.opacity += (target - matRef.current.opacity) * 0.08;
 
-    const focusBoost = active ? 1.0 : 0.5; // slow drift in idle, livelier in focus
+    // When focus starts again after being inactive, randomize positions so
+    // particles spawn fresh from the sky (no clump waiting in storage).
+    if (active && !prevActive.current) {
+      for (let i = 0; i < count; i++) {
+        const d = data[i];
+        d.x = (Math.random() - 0.5) * radius * 2.6;
+        d.z = (Math.random() - 0.5) * radius * 2.6;
+        d.y = params.rises ? 0.2 + Math.random() * 1.5 : 4 + Math.random() * 3;
+      }
+    }
+    prevActive.current = active;
+
+    // Skip work entirely when fully faded out — particles freeze invisibly.
+    if (!active && matRef.current.opacity < 0.02) return;
+
+    const focusBoost = active ? 1.0 : 0.0;
 
     for (let i = 0; i < count; i++) {
       const d = data[i];

@@ -55,6 +55,33 @@ function tintScene(root: THREE.Object3D, tint: string): THREE.Object3D {
   return root;
 }
 
+/** Spotlight beam from above the island, fades in/out with focus state. */
+function FocusSpotlight({ active, color, radius }: { active: boolean; color: string; radius: number }) {
+  const lightRef = useRef<THREE.SpotLight>(null);
+  const target = useMemo(() => new THREE.Object3D(), []);
+  useFrame(() => {
+    if (!lightRef.current) return;
+    const goal = active ? 4.0 : 0.0;
+    lightRef.current.intensity += (goal - lightRef.current.intensity) * 0.05;
+  });
+  return (
+    <>
+      <primitive object={target} position={[0, 0, 0]} />
+      <spotLight
+        ref={lightRef}
+        position={[0, 14, 0]}
+        target={target}
+        color={color}
+        intensity={0}
+        angle={Math.atan2(radius * 1.2, 14)}
+        penumbra={0.6}
+        distance={20}
+        decay={1.2}
+      />
+    </>
+  );
+}
+
 function BlockInstance({ def, biome }: { def: BlockDef; biome: Biome }) {
   const modelName = pickModel(def.model, biome);
   const { scene } = useGLTF(`/models/blocks/${modelName}.glb`);
@@ -152,6 +179,7 @@ export default function Island({ player, position, isOwn, onClick }: IslandProps
   return (
     <group ref={groupRef} position={position}>
       <pointLight position={[0, 3, 0]} color={pointColor} intensity={pointIntensity} distance={islandSize + 8} />
+      <FocusSpotlight active={isFocusing} color={biome.lightFocusColor} radius={islandSize} />
 
       <group scale={ISLAND_SCALE}>
         <group>
