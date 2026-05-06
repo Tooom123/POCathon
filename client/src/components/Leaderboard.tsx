@@ -50,10 +50,9 @@ export default function Leaderboard() {
             <span className={`lb-online-dot ${p.isFocusing ? 'lb-online-dot--focus' : 'lb-online-dot--idle'}`} />
             <span className="lb-name">{p.name}</span>
             <div className="lb-stats">
-              {p.id === myId
-                ? <span className="lb-income">+{formatCoins(p.incomePerSec)}/s</span>
-                : <span className="lb-income lb-income--other">⭐ {p.unlockedAnimals}</span>
-              }
+              <span className="lb-income">
+                🪙 {formatCoins(p.incomePerSec)}/s
+              </span>
               <span className="lb-time">{formatTime(p.liveSeconds)}</span>
             </div>
           </div>

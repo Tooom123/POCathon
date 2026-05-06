@@ -18,10 +18,6 @@ const RARITY_PARTICLES: Record<Rarity, { color: string; size: number; count: num
   legendary: { color: '#ffcc00', size: 0.050, count: 14, speed: 0.35, spread: 0.26, maxHeight: 0.55 },
 };
 
-function seededRand(seed: number) {
-  let s = seed;
-  return () => { s = (s * 1664525 + 1013904223) & 0xffffffff; return (s >>> 0) / 0xffffffff; };
-}
 
 interface Props {
   animalId: string;
@@ -112,17 +108,12 @@ export default function Animal({ animalId, slot, total, isFocusing, walkRadius, 
 
   const { actions, mixer } = useAnimations(animations, clonedScene.current);
 
-  const rand = useMemo(() => seededRand(slot * 9973 + 1234), [slot]);
-  const state = useRef({
-    x: Math.cos((slot / Math.max(total, 1)) * Math.PI * 2) * walkRadius * 0.45,
-    z: Math.sin((slot / Math.max(total, 1)) * Math.PI * 2) * walkRadius * 0.45,
-    heading: rand() * Math.PI * 2,
-    turnTimer: rand() * 1.5,
-    turnTarget: rand() * Math.PI * 2,
-    speed: 0.28 + rand() * 0.16,
-    pauseTimer: 0,
-    pausing: false,
-  });
+  // Each animal orbits at a fixed radius, offset by slot
+  const orbitRadius = walkRadius * (0.38 + (slot % 3) * 0.18);
+  // Base angle so animals start evenly distributed
+  const baseAngle = (slot / Math.max(total, 1)) * Math.PI * 2;
+  // Slightly different speed per slot so they don't clump
+  const orbitSpeed = 0.22 + (slot % 4) * 0.04;
 
   useEffect(() => {
     if (!actions) return;
@@ -132,71 +123,44 @@ export default function Animal({ animalId, slot, total, isFocusing, walkRadius, 
     if (!clip) return;
     Object.values(actions).forEach(a => a?.fadeOut(0.35));
     clip.reset().fadeIn(0.35).play();
-    clip.timeScale = isFocusing ? 0.65 : 0.55;
+    clip.timeScale = isFocusing ? 0.55 : 0.5;
   }, [isFocusing, actions]);
 
   useFrame((_, delta) => { mixer.update(delta); });
 
-  useFrame(({ clock }, delta) => {
+  useFrame(({ clock }) => {
     if (!groupRef.current) return;
     const t = clock.getElapsedTime();
-    const s = state.current;
 
     if (!isFocusing) {
-      const baseAngle = (slot / Math.max(total, 1)) * Math.PI * 2;
-      const r = walkRadius * (0.45 + (slot % 3) * 0.15);
-      const bx = Math.cos(baseAngle) * r;
-      const bz = Math.sin(baseAngle) * r;
-      const idleY = isFlying
-        ? GROUND_Y + FLYING_Y_OFFSET + Math.sin(t * 0.6 + slot) * 0.07
-        : GROUND_Y + Math.sin(t * 0.9 + slot) * 0.007;
-      groupRef.current.position.set(bx, idleY, bz);
+      // Idle: fixed position around island, facing center, tiny breathe
+      const bx = Math.cos(baseAngle) * orbitRadius;
+      const bz = Math.sin(baseAngle) * orbitRadius;
+      groupRef.current.position.set(
+        bx,
+        GROUND_Y + Math.sin(t * 0.9 + slot) * 0.007,
+        bz,
+      );
+      // Face island center
       groupRef.current.rotation.y = Math.atan2(-bx, -bz);
       return;
     }
 
-    // Pausing
-    if (s.pausing) {
-      s.pauseTimer -= delta;
-      if (s.pauseTimer <= 0) s.pausing = false;
-      groupRef.current.position.y = isFlying
-        ? GROUND_Y + FLYING_Y_OFFSET + Math.sin(t * 1.0 + slot) * 0.09
-        : GROUND_Y;
-      return;
-    }
+    // Focus: slow orbit around island (AFK patrol)
+    const angle = baseAngle + t * orbitSpeed;
+    const x = Math.cos(angle) * orbitRadius;
+    const z = Math.sin(angle) * orbitRadius;
 
-    // Random turn timer
-    s.turnTimer -= delta;
-    if (s.turnTimer <= 0) {
-      s.turnTarget = s.heading + (rand() - 0.5) * Math.PI * 1.3;
-      s.turnTimer = 1.0 + rand() * 2.0;
-      if (rand() < 0.18) { s.pausing = true; s.pauseTimer = 0.6 + rand() * 1.2; }
-    }
-
-    // Smooth turn
-    let dA = ((s.turnTarget - s.heading + Math.PI) % (Math.PI * 2)) - Math.PI;
-    s.heading += dA * Math.min(delta * 2.2, 1);
-
-    // Boundary push back toward centre
-    const dist2 = s.x * s.x + s.z * s.z;
-    const maxR = walkRadius * 0.82;
-    if (dist2 > maxR * maxR) {
-      const toC = Math.atan2(-s.z, -s.x);
-      let d2 = ((toC - s.heading + Math.PI) % (Math.PI * 2)) - Math.PI;
-      s.heading += d2 * delta * 4.0;
-    }
-
-    s.x += Math.cos(s.heading) * s.speed * delta;
-    s.z += Math.sin(s.heading) * s.speed * delta;
-
-    const flyY = isFlying
-      ? GROUND_Y + FLYING_Y_OFFSET + Math.sin(t * 1.0 + slot) * 0.09
+    const y = isFlying
+      ? GROUND_Y + FLYING_Y_OFFSET + Math.sin(t * 1.1 + slot) * 0.1
       : GROUND_Y;
 
-    groupRef.current.position.set(s.x, flyY, s.z);
-    // +Z is front face; want it facing (cos heading, 0, sin heading)
-    // rotY so that local +Z → world (cos h, 0, sin h): rotY = PI/2 - heading
-    groupRef.current.rotation.y = Math.PI / 2 - s.heading;
+    groupRef.current.position.set(x, y, z);
+
+    // Tangent direction: velocity of CCW circle = (-sin(angle), 0, cos(angle))
+    // Model +Z = front. After rotY, +Z → (sin(rotY), 0, cos(rotY)).
+    // Want sin(rotY)=−sin(angle), cos(rotY)=cos(angle) → rotY = −angle
+    groupRef.current.rotation.y = -angle;
   });
 
   return (
