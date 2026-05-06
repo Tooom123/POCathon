@@ -24,7 +24,7 @@ export default function Lobby() {
 
       <div className="lobby-card">
         <div className="lobby-logo">
-          <span className="lobby-logo-icon">🏝️</span>
+          <img src="/previews/animals/animal-deer.png" alt="deer" className="lobby-logo-img" />
           <h1 className="lobby-title">Focus<span className="lobby-title-accent">Island</span></h1>
         </div>
         <p className="lobby-sub">Travaillez. Progressez. Peuplez votre île.</p>
@@ -90,6 +90,10 @@ export default function Lobby() {
           <div className="lobby-feature">🔥 Focus social</div>
           <div className="lobby-feature">🪙 Économie</div>
         </div>
+      </div>
+
+      <div className="lobby-footer">
+        Tom &amp; Mehdi — Hackathon POC 06/05/2026
       </div>
     </div>
   );

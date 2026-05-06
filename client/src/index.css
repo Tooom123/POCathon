@@ -63,7 +63,7 @@ body {
   gap: 10px;
   margin-bottom: 6px;
 }
-.lobby-logo-icon { font-size: 2.4rem; }
+.lobby-logo-img { width: 52px; height: 52px; object-fit: contain; image-rendering: pixelated; }
 .lobby-title {
   font-size: 2rem;
   font-weight: 800;
@@ -156,6 +156,16 @@ body {
   border-top: 1px solid #1e2e1e;
 }
 .lobby-feature { font-size: 0.75rem; color: #3a6a3a; }
+
+.lobby-footer {
+  position: absolute;
+  bottom: 18px;
+  left: 0; right: 0;
+  text-align: center;
+  font-size: 0.7rem;
+  color: #2a4a2a;
+  letter-spacing: 1px;
+}
 
 /* ─── HUD ─── */
 .hud { position: fixed; inset: 0; pointer-events: none; z-index: 10; }
