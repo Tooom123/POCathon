@@ -1,18 +1,18 @@
 import { useGameStore } from '../stores/gameStore';
 
 // Mirrors getIslandPosition() in GameScene.tsx
-function getIslandPosition(index: number, total: number): [number, number] {
-  if (total === 1) return [0, 0];
+function getIslandPosition(index: number, total: number): [number, number, number] {
+  if (total === 1) return [0, 0, 0];
   const spacing = 28;
   const x = (index - (total - 1) / 2) * spacing;
   const z = (index % 2 === 0 ? 0 : -8) + Math.sin(index * 1.1) * 4;
-  return [x, z];
+  return [x, 0, z];
 }
 
 const SIZE = 160;       // px
 const PADDING = 12;
 
-export default function Minimap() {
+export default function Minimap({ onIslandClick }: { onIslandClick?: (id: string, pos: [number, number, number]) => void }) {
   const { players, myId, visitingIslandId, visitIsland } = useGameStore();
   const list = Object.values(players);
   if (list.length === 0) return null;
@@ -20,7 +20,7 @@ export default function Minimap() {
   // Compute world bounds
   const positions = list.map((_, i) => getIslandPosition(i, list.length));
   const xs = positions.map(p => p[0]);
-  const zs = positions.map(p => p[1]);
+  const zs = positions.map(p => p[2]);
   const minX = Math.min(...xs) - 4;
   const maxX = Math.max(...xs) + 4;
   const minZ = Math.min(...zs) - 4;
@@ -43,14 +43,18 @@ export default function Minimap() {
       <div className="minimap-title">CARTE</div>
       <svg width={SIZE} height={SIZE} className="minimap-svg">
         {list.map((p, i) => {
-          const [wx, wz] = positions[i];
+          const [wx, , wz] = positions[i];
           const [px, py] = project(wx, wz);
           const isMe = p.id === myId;
           const isVisited = visitingIslandId === p.id;
           const fill = p.isFocusing ? '#ff9944' : '#4aac58';
           return (
             <g key={p.id} style={{ cursor: 'pointer' }}
-               onClick={() => visitIsland(visitingIslandId === p.id ? null : p.id)}>
+               onClick={() => {
+                 const next = visitingIslandId === p.id ? null : p.id;
+                 visitIsland(next);
+                 if (onIslandClick) onIslandClick(p.id, positions[i]);
+               }}>
               {isVisited && (
                 <circle cx={px} cy={py} r={9} fill="none" stroke="#ffffff" strokeWidth={1.5} />
               )}

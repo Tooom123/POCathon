@@ -209,7 +209,7 @@ export default function GameScene() {
 
       <LoadingOverlay />
       <Leaderboard />
-      {cameraTarget === storeMyId ? <AnimalManager visible={true} /> : <Minimap />}
+      {cameraTarget === storeMyId ? <AnimalManager visible={true} /> : <Minimap onIslandClick={handleIslandClick} />}
       <HUD />
       {shopOpen && <Shop />}
 
