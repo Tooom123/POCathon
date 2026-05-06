@@ -5,63 +5,59 @@ import * as THREE from 'three';
 import Animal from './Animal';
 import { PlayerState, useGameStore } from '../stores/gameStore';
 import { getIslandLevel } from '../animals';
+import { getLayout, BlockDef } from '../islandLayout';
 
-// Exact block width from GLB bounding box: [-0.541, 0.541] = 1.082 wide
-const BLOCK_W = 1.082;
-// Block height: y goes [0, 1], so top surface at y = 1
 export const ISLAND_SURFACE_Y = 1.05;
 
-/** Generate centered N×N grid of [x, z] positions */
-function makeGrid(n: number): Array<[number, number]> {
-  const positions: Array<[number, number]> = [];
-  const offset = ((n - 1) / 2) * BLOCK_W;
-  for (let row = 0; row < n; row++) {
-    for (let col = 0; col < n; col++) {
-      positions.push([col * BLOCK_W - offset, row * BLOCK_W - offset]);
-    }
-  }
-  return positions;
+// Preload all block models
+const BLOCK_MODELS = [
+  'block-grass',
+  'block-grass-large',
+  'block-grass-low',
+  'block-grass-edge',
+  'block-grass-corner',
+  'block-grass-corner-low',
+];
+
+function BlockInstance({ def }: { def: BlockDef }) {
+  const { scene } = useGLTF(`/models/blocks/${def.model}.glb`);
+  const clone = useMemo(() => scene.clone(true), [scene]);
+  return (
+    <primitive
+      object={clone}
+      position={[def.x, def.y, def.z]}
+      rotation={[0, def.rotY, 0]}
+    />
+  );
 }
 
-function IslandBlocks({ gridN }: { gridN: number }) {
-  const { scene } = useGLTF('/models/blocks/block-grass.glb');
-  const positions = useMemo(() => makeGrid(gridN), [gridN]);
-
-  // Clone once per position; memoize to avoid re-cloning each frame
-  const clones = useMemo(() => {
-    return positions.map(([x, z]) => {
-      const clone = scene.clone(true);
-      return { x, z, clone };
-    });
-  }, [scene, positions]);
-
+function IslandBlocks({ level }: { level: number }) {
+  const layout = useMemo(() => getLayout(level), [level]);
   return (
     <group>
-      {clones.map(({ x, z, clone }, i) => (
-        <primitive key={i} object={clone} position={[x, 0, z]} />
+      {layout.blocks.map((def, i) => (
+        <BlockInstance key={i} def={def} />
       ))}
     </group>
   );
 }
 
-/** Trees / flowers placed on the grass surface */
-function IslandDecor({ gridN, count }: { gridN: number; count: number }) {
+function IslandDecor({ level, animalCount }: { level: number; animalCount: number }) {
   const { scene: treeScene }   = useGLTF('/models/blocks/tree-pine.glb');
   const { scene: flowerScene } = useGLTF('/models/blocks/flowers-tall.glb');
   const { scene: mushScene }   = useGLTF('/models/blocks/mushrooms.glb');
   const { scene: plantScene }  = useGLTF('/models/blocks/plant.glb');
 
-  // Place decorations in corners of the island
-  const r = ((gridN - 1) / 2) * BLOCK_W * 0.72;
+  const r = 0.8 + level * 0.3;
 
   return (
     <group position={[0, ISLAND_SURFACE_Y, 0]}>
-      {count >= 3  && <primitive object={treeScene.clone(true)}   position={[-r,  0, -r]}        scale={0.65} />}
-      {count >= 5  && <primitive object={treeScene.clone(true)}   position={[ r,  0,  r * 0.8]}  scale={0.55} />}
-      {count >= 2  && <primitive object={flowerScene.clone(true)} position={[ r,  0, -r * 0.7]}  scale={0.6}  />}
-      {count >= 4  && <primitive object={mushScene.clone(true)}   position={[-r * 0.6, 0,  r]}   scale={0.6}  />}
-      {count >= 8  && <primitive object={plantScene.clone(true)}  position={[ 0,  0, -r * 0.9]}  scale={0.6}  />}
-      {count >= 10 && <primitive object={flowerScene.clone(true)} position={[-r * 0.8, 0, -r * 0.4]} scale={0.5} />}
+      {animalCount >= 2  && <primitive object={flowerScene.clone(true)} position={[ r * 0.6, 0, -r * 0.7]} scale={0.6} />}
+      {animalCount >= 3  && <primitive object={treeScene.clone(true)}   position={[-r, 0, -r]}               scale={0.7} />}
+      {animalCount >= 4  && <primitive object={mushScene.clone(true)}   position={[-r * 0.5, 0, r]}          scale={0.6} />}
+      {animalCount >= 6  && <primitive object={treeScene.clone(true)}   position={[ r, 0, r * 0.7]}          scale={0.6} />}
+      {animalCount >= 8  && <primitive object={plantScene.clone(true)}  position={[ 0, 0, -r * 0.9]}         scale={0.6} />}
+      {animalCount >= 10 && <primitive object={flowerScene.clone(true)} position={[-r * 0.8, 0, -r * 0.4]}  scale={0.5} />}
     </group>
   );
 }
@@ -79,10 +75,12 @@ export default function Island({ player, position, isOwn, onClick }: IslandProps
   const { isFocusing, name, islandIndex } = player;
 
   const { shopOpen } = useGameStore();
-  const islandInfo = getIslandLevel(isOwn ? islandLevel : 1);
-  const { gridN, capacity } = islandInfo;
+  const displayLevel = isOwn ? islandLevel : 1;
+  const islandInfo = getIslandLevel(displayLevel);
+  const { capacity } = islandInfo;
 
-  // Animals to show: own island uses real list, others get approximation
+  const layout = useMemo(() => getLayout(displayLevel), [displayLevel]);
+
   const FALLBACK = ['bunny','cat','dog','chick','penguin','fox','panda','koala'];
   const animalsToShow = isOwn
     ? ownedAnimals.slice(0, capacity)
@@ -97,14 +95,13 @@ export default function Island({ player, position, isOwn, onClick }: IslandProps
     groupRef.current.position.y = position[1] + Math.sin(t * 0.4 + islandIndex * 1.3) * 0.1;
   });
 
-  const islandRadius = ((gridN - 1) / 2) * BLOCK_W * 0.65;
   const pointColor     = isFocusing ? '#ffdd66' : '#6688cc';
   const pointIntensity = isFocusing ? 4.5 : 0.9;
+  const islandSize     = 3 + displayLevel * 2;
 
   return (
     <group ref={groupRef} position={position}>
-      {/* Per-island dynamic light */}
-      <pointLight position={[0, 3, 0]} color={pointColor} intensity={pointIntensity} distance={gridN * BLOCK_W + 8} />
+      <pointLight position={[0, 3, 0]} color={pointColor} intensity={pointIntensity} distance={islandSize + 8} />
 
       {isFocusing && (
         <mesh position={[0, ISLAND_SURFACE_Y + 2.5, 0]}>
@@ -113,8 +110,8 @@ export default function Island({ player, position, isOwn, onClick }: IslandProps
         </mesh>
       )}
 
-      <IslandBlocks gridN={gridN} />
-      <IslandDecor gridN={gridN} count={animalsToShow.length} />
+      <IslandBlocks level={displayLevel} />
+      <IslandDecor level={displayLevel} animalCount={animalsToShow.length} />
 
       {animalsToShow.map((animalId, i) => (
         <Animal
@@ -123,13 +120,12 @@ export default function Island({ player, position, isOwn, onClick }: IslandProps
           slot={i}
           total={animalsToShow.length}
           isFocusing={isFocusing}
-          islandRadius={islandRadius}
+          walkRadius={layout.walkRadius}
         />
       ))}
 
-      {/* Billboard label — Html always faces camera */}
       <Html
-        position={[0, ISLAND_SURFACE_Y + 2.2, 0]}
+        position={[0, ISLAND_SURFACE_Y + 2.8, 0]}
         center
         distanceFactor={12}
         style={{ pointerEvents: 'none', userSelect: 'none', visibility: shopOpen ? 'hidden' : 'visible' }}
@@ -141,14 +137,14 @@ export default function Island({ player, position, isOwn, onClick }: IslandProps
 
       {/* Invisible click zone */}
       <mesh visible={false} onClick={onClick}>
-        <boxGeometry args={[gridN * BLOCK_W + 2, 8, gridN * BLOCK_W + 2]} />
+        <boxGeometry args={[islandSize + 2, 8, islandSize + 2]} />
         <meshBasicMaterial />
       </mesh>
     </group>
   );
 }
 
-useGLTF.preload('/models/blocks/block-grass.glb');
+BLOCK_MODELS.forEach((m) => useGLTF.preload(`/models/blocks/${m}.glb`));
 useGLTF.preload('/models/blocks/tree-pine.glb');
 useGLTF.preload('/models/blocks/flowers-tall.glb');
 useGLTF.preload('/models/blocks/mushrooms.glb');
