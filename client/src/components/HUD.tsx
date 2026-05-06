@@ -1,11 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useGameStore } from '../stores/gameStore';
-import { useAuthStore } from '../stores/authStore';
 import { formatCoins, getIslandLevel } from '../animals';
-import { reportSessions } from '../api/userApi';
 import socket from '../socket';
-
-const BASE_URL = 'http://localhost:8000';
 
 function formatTime(secs: number): string {
   const h = Math.floor(secs / 3600);
@@ -17,11 +13,9 @@ function formatTime(secs: number): string {
 }
 
 export default function HUD() {
-  const { myId, players, lobbyCode, lobbyName, coins, ownedAnimals, islandLevel, incomePerSec, setShopOpen, shopOpen, resetIsland, refreshProfile } = useGameStore();
-  const userId = useAuthStore((s) => s.userId);
+  const { myId, players, lobbyCode, lobbyName, coins, ownedAnimals, islandLevel, incomePerSec, setShopOpen, shopOpen, resetIsland } = useGameStore();
   const me = myId ? players[myId] : null;
 
-  // sessionStart tracks both the ms timestamp (for duration calc) and the ISO string (for webhook)
   const sessionStartMs = useRef<number | null>(null);
   const sessionStartISO = useRef<string | null>(null);
   const [elapsed, setElapsed] = useState(0);
@@ -63,24 +57,6 @@ export default function HUD() {
     }
   }
 
-  // Commit in-progress session on page close (best-effort via sendBeacon)
-  useEffect(() => {
-    function handleUnload() {
-      if (!me?.isFocusing || !sessionStartMs.current || !sessionStartISO.current || !userId) return;
-      const duration = Math.floor((Date.now() - sessionStartMs.current) / 1000);
-      if (duration < 5) return;
-      const endedAt = new Date(sessionStartMs.current + duration * 1000).toISOString();
-      navigator.sendBeacon(
-        `${BASE_URL}/webhook/report`,
-        new Blob([JSON.stringify({
-          user_id: userId,
-          sessions: [{ app: 'FocusIsland', category: 'productive', started_at: sessionStartISO.current, ended_at: endedAt, duration }],
-        })], { type: 'application/json' }),
-      );
-    }
-    window.addEventListener('beforeunload', handleUnload);
-    return () => window.removeEventListener('beforeunload', handleUnload);
-  }, [me?.isFocusing, userId]);
 
   // Live focus timer
   useEffect(() => {
@@ -98,40 +74,44 @@ export default function HUD() {
     return () => clearInterval(id);
   }, [me?.isFocusing]);
 
-  async function toggleFocus() {
+  // Auto-focus: start when tab is visible and focused, stop when hidden or blurred
+  useEffect(() => {
     if (!me) return;
-    if (me.isFocusing) {
-      const startMs = sessionStartMs.current;
-      const startISO = sessionStartISO.current;
-      socket.emit('stop_focus');
-      sessionStartMs.current = null;
-      sessionStartISO.current = null;
-      setElapsed(0);
-      // Submit focus session to the server — overlap detection in the pipeline ensures
-      // that if the desktop tracker already submitted a session for this time window,
-      // this call is rejected as an overlap and no double-counting occurs.
-      if (userId && startMs && startISO) {
-        const duration = Math.floor((Date.now() - startMs) / 1000);
-        if (duration >= 5) {
-          const endedAt = new Date(startMs + duration * 1000).toISOString();
-          await reportSessions(userId, [{
-            app: 'FocusIsland',
-            category: 'productive',
-            started_at: startISO,
-            ended_at: endedAt,
-            duration,
-          }]);
-        }
-      }
-      // SSE will pick up the new balance within 3s — refreshProfile as immediate fallback
-      await refreshProfile();
-    } else {
+
+    function startFocus() {
+      if (me!.isFocusing) return;
       sessionStartMs.current = Date.now();
       sessionStartISO.current = new Date().toISOString();
       setElapsed(0);
       socket.emit('start_focus');
     }
-  }
+
+    function stopFocus() {
+      if (!me!.isFocusing) return;
+      socket.emit('stop_focus');
+      sessionStartMs.current = null;
+      sessionStartISO.current = null;
+      setElapsed(0);
+    }
+
+    function handleVisibility() {
+      if (document.visibilityState === 'visible') startFocus();
+      else stopFocus();
+    }
+
+    document.addEventListener('visibilitychange', handleVisibility);
+    window.addEventListener('blur', stopFocus);
+    window.addEventListener('focus', startFocus);
+
+    // Start immediately if tab is already visible
+    if (document.visibilityState === 'visible') startFocus();
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibility);
+      window.removeEventListener('blur', stopFocus);
+      window.removeEventListener('focus', startFocus);
+    };
+  }, [!!me]);
 
   if (!me) return null;
 
@@ -175,12 +155,9 @@ export default function HUD() {
           </div>
         )}
 
-        <button
-          className={`focus-btn ${me.isFocusing ? 'focus-btn--stop' : 'focus-btn--start'}`}
-          onClick={toggleFocus}
-        >
-          {me.isFocusing ? '⏹ Stop' : '▶ Focus'}
-        </button>
+        <div className={`focus-indicator ${me.isFocusing ? 'focus-indicator--on' : 'focus-indicator--off'}`}>
+          {me.isFocusing ? '🟢 Focus' : '⚫ Inactif'}
+        </div>
 
         <button className="shop-btn" onClick={() => setShopOpen(!shopOpen)}>
           🐾 Shop
