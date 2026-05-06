@@ -7,7 +7,7 @@ export interface AnimalData {
   cost: number;
   incomePerSec: number;
   rarity: Rarity;
-  unlockSeconds: number;
+  unlockSeconds: number; // total focus seconds required
 }
 
 export const RARITY_COLORS: Record<Rarity, string> = {
@@ -26,30 +26,37 @@ export const RARITY_LABELS: Record<Rarity, string> = {
   legendary: 'Légendaire',
 };
 
+// Ordered weakest→strongest within each rarity tier.
+// Chick (smallest) earns less than Bunny (starter).
 export const SHOP_ANIMALS: AnimalData[] = [
-  { id: 'bunny',    name: 'Lapin',        emoji: '🐰', cost: 30,     incomePerSec: 1,    rarity: 'common',    unlockSeconds: 0    },
-  { id: 'chick',    name: 'Poussin',      emoji: '🐥', cost: 80,     incomePerSec: 2,    rarity: 'common',    unlockSeconds: 60   },
-  { id: 'pig',      name: 'Cochon',       emoji: '🐷', cost: 200,    incomePerSec: 4,    rarity: 'common',    unlockSeconds: 180  },
-  { id: 'cat',      name: 'Chat',         emoji: '🐱', cost: 400,    incomePerSec: 8,    rarity: 'common',    unlockSeconds: 300  },
-  { id: 'dog',      name: 'Chien',        emoji: '🐶', cost: 900,    incomePerSec: 18,   rarity: 'uncommon',  unlockSeconds: 600  },
-  { id: 'penguin',  name: 'Pingouin',     emoji: '🐧', cost: 1500,   incomePerSec: 28,   rarity: 'uncommon',  unlockSeconds: 900  },
-  { id: 'beaver',   name: 'Castor',       emoji: '🦫', cost: 2500,   incomePerSec: 45,   rarity: 'uncommon',  unlockSeconds: 1200 },
-  { id: 'fox',      name: 'Renard',       emoji: '🦊', cost: 4000,   incomePerSec: 70,   rarity: 'uncommon',  unlockSeconds: 1800 },
-  { id: 'panda',    name: 'Panda',        emoji: '🐼', cost: 8000,   incomePerSec: 130,  rarity: 'rare',      unlockSeconds: 2700 },
-  { id: 'koala',    name: 'Koala',        emoji: '🐨', cost: 15000,  incomePerSec: 220,  rarity: 'rare',      unlockSeconds: 3600 },
-  { id: 'deer',     name: 'Cerf',         emoji: '🦌', cost: 28000,  incomePerSec: 380,  rarity: 'rare',      unlockSeconds: 5400 },
-  { id: 'monkey',   name: 'Singe',        emoji: '🐒', cost: 50000,  incomePerSec: 600,  rarity: 'rare',      unlockSeconds: 7200 },
-  { id: 'parrot',   name: 'Perroquet',    emoji: '🦜', cost: 100000, incomePerSec: 1100, rarity: 'epic',      unlockSeconds: 10800 },
-  { id: 'tiger',    name: 'Tigre',        emoji: '🐯', cost: 180000, incomePerSec: 1800, rarity: 'epic',      unlockSeconds: 14400 },
-  { id: 'lion',     name: 'Lion',         emoji: '🦁', cost: 300000, incomePerSec: 2800, rarity: 'epic',      unlockSeconds: 18000 },
-  { id: 'elephant', name: 'Éléphant',     emoji: '🐘', cost: 600000, incomePerSec: 5000, rarity: 'legendary', unlockSeconds: 25200 },
-  { id: 'giraffe',  name: 'Girafe',       emoji: '🦒', cost: 1200000,incomePerSec: 9000, rarity: 'legendary', unlockSeconds: 36000 },
-  { id: 'polar',    name: 'Ours polaire', emoji: '🐻‍❄️', cost: 2500000,incomePerSec: 18000,rarity: 'legendary', unlockSeconds: 54000 },
+  // ── Common ──────────────────────────────────────
+  { id: 'chick',    name: 'Poussin',      emoji: '🐥', cost: 30,      incomePerSec: 0.5,  rarity: 'common',    unlockSeconds: 0     },
+  { id: 'bunny',    name: 'Lapin',        emoji: '🐰', cost: 80,      incomePerSec: 1,    rarity: 'common',    unlockSeconds: 0     },
+  { id: 'pig',      name: 'Cochon',       emoji: '🐷', cost: 200,     incomePerSec: 2,    rarity: 'common',    unlockSeconds: 120   },
+  { id: 'cat',      name: 'Chat',         emoji: '🐱', cost: 400,     incomePerSec: 3.5,  rarity: 'common',    unlockSeconds: 240   },
+  // ── Uncommon ────────────────────────────────────
+  { id: 'dog',      name: 'Chien',        emoji: '🐶', cost: 900,     incomePerSec: 7,    rarity: 'uncommon',  unlockSeconds: 480   },
+  { id: 'penguin',  name: 'Pingouin',     emoji: '🐧', cost: 1500,    incomePerSec: 12,   rarity: 'uncommon',  unlockSeconds: 720   },
+  { id: 'beaver',   name: 'Castor',       emoji: '🦫', cost: 2500,    incomePerSec: 20,   rarity: 'uncommon',  unlockSeconds: 1080  },
+  { id: 'fox',      name: 'Renard',       emoji: '🦊', cost: 4000,    incomePerSec: 32,   rarity: 'uncommon',  unlockSeconds: 1440  },
+  // ── Rare ────────────────────────────────────────
+  { id: 'panda',    name: 'Panda',        emoji: '🐼', cost: 8000,    incomePerSec: 55,   rarity: 'rare',      unlockSeconds: 2160  },
+  { id: 'koala',    name: 'Koala',        emoji: '🐨', cost: 15000,   incomePerSec: 90,   rarity: 'rare',      unlockSeconds: 3000  },
+  { id: 'deer',     name: 'Cerf',         emoji: '🦌', cost: 28000,   incomePerSec: 150,  rarity: 'rare',      unlockSeconds: 4320  },
+  { id: 'monkey',   name: 'Singe',        emoji: '🐒', cost: 50000,   incomePerSec: 240,  rarity: 'rare',      unlockSeconds: 6000  },
+  // ── Epic ────────────────────────────────────────
+  { id: 'parrot',   name: 'Perroquet',    emoji: '🦜', cost: 100000,  incomePerSec: 400,  rarity: 'epic',      unlockSeconds: 9000  },
+  { id: 'tiger',    name: 'Tigre',        emoji: '🐯', cost: 180000,  incomePerSec: 650,  rarity: 'epic',      unlockSeconds: 12600 },
+  { id: 'lion',     name: 'Lion',         emoji: '🦁', cost: 300000,  incomePerSec: 1000, rarity: 'epic',      unlockSeconds: 18000 },
+  // ── Legendary (show ??? when locked) ────────────
+  { id: 'elephant', name: 'Éléphant',     emoji: '🐘', cost: 600000,  incomePerSec: 1800, rarity: 'legendary', unlockSeconds: 25200 },
+  { id: 'giraffe',  name: 'Girafe',       emoji: '🦒', cost: 1200000, incomePerSec: 3000, rarity: 'legendary', unlockSeconds: 36000 },
+  { id: 'polar',    name: 'Ours polaire', emoji: '🐻‍❄️', cost: 2500000, incomePerSec: 5000, rarity: 'legendary', unlockSeconds: 54000 },
 ];
 
 export interface IslandLevel {
   level: number;
-  gridN: number;      // blocks per side
+  gridN: number;
   capacity: number;
   label: string;
   upgradeCost: number;
