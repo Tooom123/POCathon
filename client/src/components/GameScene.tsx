@@ -41,6 +41,7 @@ function CameraController({
   const targetCamPos = useRef(new THREE.Vector3(0, 10, 22));
   const animating    = useRef(false);
   const snap         = useRef(false);
+  const [animDone, setAnimDone] = useState(true);
 
   useEffect(() => {
     if (targetId && positions[targetId]) {
@@ -53,13 +54,13 @@ function CameraController({
     }
     snap.current = isSpawn;
     animating.current = true;
+    setAnimDone(false);
   }, [targetId]);
 
   useFrame(() => {
     if (!animating.current) return;
 
     if (snap.current) {
-      // Instant teleport for initial spawn
       camera.position.copy(targetCamPos.current);
       if (controlsRef.current) {
         controlsRef.current.target.copy(targetPos.current);
@@ -67,6 +68,7 @@ function CameraController({
       }
       snap.current = false;
       animating.current = false;
+      setAnimDone(true);
       return;
     }
 
@@ -76,8 +78,16 @@ function CameraController({
       controlsRef.current.target.lerp(targetPos.current, SPEED);
       controlsRef.current.update();
     }
-    if (camera.position.distanceTo(targetCamPos.current) < 0.05) animating.current = false;
+    if (camera.position.distanceTo(targetCamPos.current) < 0.05) {
+      animating.current = false;
+      setAnimDone(true);
+    }
   });
+
+  // autoRotate must wait for the lerp to finish, otherwise the manual lerp
+  // and OrbitControls' internal rotation step fight each other (and any user
+  // zoom/pan interaction breaks it for good).
+  const shouldAutoRotate = autoRotate && animDone;
 
   return (
     <OrbitControls
@@ -87,7 +97,7 @@ function CameraController({
       minDistance={4}
       maxDistance={80}
       maxPolarAngle={Math.PI / 2.1}
-      autoRotate={autoRotate}
+      autoRotate={shouldAutoRotate}
       autoRotateSpeed={0.6}
     />
   );
