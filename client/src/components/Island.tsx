@@ -92,31 +92,37 @@ export default function Island({ player, position, isOwn, onClick }: IslandProps
   const pointIntensity = isFocusing ? 3.0 : 0.9;
   const islandSize     = 3 + displayLevel * 2;
 
+  // Island block scale: makes islands larger so animals have room to roam
+  const ISLAND_SCALE = 1.6;
+
   return (
     <group ref={groupRef} position={position}>
       <pointLight position={[0, 3, 0]} color={pointColor} intensity={pointIntensity} distance={islandSize + 8} />
 
-      <IslandBlocks level={displayLevel} />
-      <IslandDecor level={displayLevel} />
+      {/* All island geometry + animals share the same scale so animals sit on exact surface */}
+      <group scale={ISLAND_SCALE}>
+        <IslandBlocks level={displayLevel} />
+        <IslandDecor level={displayLevel} />
 
-      {animalsToShow.map((animalId, i) => {
-        const animalData = SHOP_ANIMALS.find(a => a.id === animalId);
-        const rarity = animalData?.rarity ?? 'common';
-        return (
-          <Animal
-            key={`${animalId}-${i}`}
-            animalId={animalId}
-            slot={i}
-            total={animalsToShow.length}
-            isFocusing={isFocusing}
-            walkRadius={layout.walkRadius}
-            rarity={rarity}
-          />
-        );
-      })}
+        {animalsToShow.map((animalId, i) => {
+          const animalData = SHOP_ANIMALS.find(a => a.id === animalId);
+          const rarity = animalData?.rarity ?? 'common';
+          return (
+            <Animal
+              key={`${animalId}-${i}`}
+              animalId={animalId}
+              slot={i}
+              total={animalsToShow.length}
+              isFocusing={isFocusing}
+              walkRadius={layout.walkRadius}
+              rarity={rarity}
+            />
+          );
+        })}
+      </group>
 
       <Html
-        position={[0, ISLAND_SURFACE_Y + 3.2, 0]}
+        position={[0, 1.0 * 1.6 + 3.5, 0]}
         center
         distanceFactor={12}
         style={{ pointerEvents: 'none', userSelect: 'none', visibility: shopOpen ? 'hidden' : 'visible' }}
