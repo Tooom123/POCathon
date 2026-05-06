@@ -8,6 +8,7 @@ import HUD from './HUD';
 import Shop from './Shop';
 import ShootingStars from './ShootingStars';
 import AnimalManager from './AnimalManager';
+import DecorManager from './DecorManager';
 import Leaderboard from './Leaderboard';
 import Minimap from './Minimap';
 import socket from '../socket';
@@ -241,7 +242,12 @@ export default function GameScene() {
 
       <LoadingOverlay />
       <Leaderboard />
-      {cameraTarget === storeMyId ? <AnimalManager visible={true} /> : <Minimap onIslandClick={handleIslandClick} />}
+      {cameraTarget === storeMyId ? (
+        <>
+          <AnimalManager visible={true} />
+          <DecorManager visible={true} />
+        </>
+      ) : <Minimap onIslandClick={handleIslandClick} />}
       <HUD />
       {shopOpen && <Shop />}
 

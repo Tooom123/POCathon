@@ -551,6 +551,11 @@ body {
   max-height: 60vh;
 }
 
+.animal-manager--decors {
+  bottom: auto;
+  top: 90px;
+}
+
 .animal-manager-title {
   font-size: 0.78rem;
   font-weight: 800;

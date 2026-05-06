@@ -5,7 +5,7 @@ import { SHOP_ANIMALS, SHOP_DECORS, ISLAND_LEVELS, RARITY_COLORS, RARITY_LABELS,
 type Tab = 'animals' | 'island' | 'decor';
 
 export default function Shop() {
-  const { coins, ownedAnimals, islandLevel, buyAnimal, upgradeIsland, buyDecor, removeDecor, placedDecors, setShopOpen, players, myId } = useGameStore();
+  const { coins, ownedAnimals, islandLevel, buyAnimal, upgradeIsland, buyDecor, placedDecors, setShopOpen, players, myId } = useGameStore();
   const [tab, setTab] = useState<Tab>('animals');
   const [shakeId, setShakeId] = useState<string | null>(null);
 
@@ -249,26 +249,6 @@ export default function Shop() {
                 </div>
               );
             })}
-            {placedDecors.length > 0 && (
-              <div className="shop-card" style={{ gridColumn: '1 / -1', alignItems: 'flex-start' }}>
-                <div className="shop-card-name" style={{ alignSelf: 'center' }}>Décors placés ({placedDecors.length})</div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, padding: 4 }}>
-                  {placedDecors.map((d, i) => (
-                    <button
-                      key={i}
-                      onClick={() => removeDecor(i)}
-                      title="Cliquer pour supprimer"
-                      style={{
-                        background: '#1a2a1a', border: '1px solid #2a3a2a', color: '#c0d8c0',
-                        padding: '4px 8px', borderRadius: 4, cursor: 'pointer', fontSize: '0.75rem',
-                      }}
-                    >
-                      🗑 {d.id}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
           </div>
         )}
       </div>
