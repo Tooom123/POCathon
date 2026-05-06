@@ -488,11 +488,11 @@ body {
 .upgrade-card--next:hover { border-color: #4aac58; }
 
 .upgrade-level { font-size: 0.7rem; font-weight: 800; letter-spacing: 1px; color: #4a7a5a; text-transform: uppercase; min-width: 50px; }
-.upgrade-name  { font-size: 0.9rem; font-weight: 800; color: #c0e0c0; flex: 1; }
-.upgrade-stats { font-size: 0.75rem; color: #5a8a6a; min-width: 120px; }
+.upgrade-name  { font-size: 0.9rem; font-weight: 800; color: #c0e0c0; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.upgrade-stats { font-size: 0.75rem; color: #5a8a6a; min-width: 120px; white-space: nowrap; }
 .upgrade-done  { font-size: 0.8rem; color: #4aac58; font-weight: 700; min-width: 80px; text-align: right; }
 .upgrade-locked-msg { font-size: 0.7rem; color: #3a5a3a; min-width: 80px; text-align: right; }
-.upgrade-btn   { min-width: 100px; }
+.upgrade-btn   { width: 110px; flex: 0 0 auto; margin-left: auto; }
 
 /* ─── HUD CAPACITY ─── */
 .hud-capacity { display: flex; flex-direction: column; align-items: center; font-size: 0.78rem; color: #8aba8a; }
