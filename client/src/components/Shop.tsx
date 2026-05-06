@@ -207,7 +207,7 @@ export default function Shop() {
               return (
                 <div key={decor.id} className={`shop-card ${!isUnlocked ? 'shop-card--locked' : ''}`}>
                   <div className="shop-card-img-wrap">
-                    <div className="shop-card-emoji" style={{ fontSize: '2.6rem' }}>{decor.emoji}</div>
+                    <img src={`/previews/decors/${decor.id}.png`} alt={decor.name} className="shop-card-img" draggable={false} />
                     {!isUnlocked && <div className="shop-card-lock-overlay">🔒</div>}
                     {owned > 0 && <div className="shop-card-owned-badge">×{owned}</div>}
                   </div>
