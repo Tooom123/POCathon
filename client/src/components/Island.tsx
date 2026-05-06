@@ -4,15 +4,18 @@ import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import Animal from './Animal';
 import { PlayerState, useGameStore } from '../stores/gameStore';
-import { getIslandLevel } from '../animals';
+import { SHOP_ANIMALS, getIslandLevel } from '../animals';
 import { getLayout, BlockDef, DecorDef } from '../islandLayout';
 
-export const ISLAND_SURFACE_Y = 1.05;
+export const ISLAND_SURFACE_Y = 1.0; // exact top of standard block
 
 const BLOCK_MODELS = [
   'block-grass',
   'block-grass-large',
+  'block-grass-long',
   'block-grass-low',
+  'block-grass-low-large',
+  'block-grass-edge',
   'block-grass-corner',
   'block-grass-corner-low',
 ];
@@ -51,73 +54,6 @@ function IslandDecor({ level }: { level: number }) {
     <group>
       {layout.decors.map((def, i) => <DecorInstance key={i} def={def} />)}
     </group>
-  );
-}
-
-// Discrete particle ribbon rising behind the island
-function IslandParticles({ isFocusing }: { isFocusing: boolean }) {
-  const count = 18;
-  const positions = useRef<Float32Array>(new Float32Array(count * 3));
-  const velocities = useRef<Float32Array>(new Float32Array(count * 3));
-  const lifetimes = useRef<Float32Array>(new Float32Array(count));
-  const maxLifes = useRef<Float32Array>(new Float32Array(count));
-  const geoRef = useRef<THREE.BufferGeometry>(null);
-  const matRef = useRef<THREE.PointsMaterial>(null);
-
-  // Initialize particles spread behind the island (z = -3..0)
-  useMemo(() => {
-    for (let i = 0; i < count; i++) {
-      lifetimes.current[i] = Math.random() * 3; // stagger start
-      maxLifes.current[i] = 2.5 + Math.random() * 2;
-      positions.current[i * 3 + 0] = (Math.random() - 0.5) * 3.5;
-      positions.current[i * 3 + 1] = Math.random() * 2;
-      positions.current[i * 3 + 2] = -1.5 - Math.random() * 2;
-      velocities.current[i * 3 + 0] = (Math.random() - 0.5) * 0.15;
-      velocities.current[i * 3 + 1] = 0.25 + Math.random() * 0.3;
-      velocities.current[i * 3 + 2] = 0;
-    }
-  }, []);
-
-  useFrame((_, delta) => {
-    if (!geoRef.current || !matRef.current) return;
-    for (let i = 0; i < count; i++) {
-      lifetimes.current[i] += delta;
-      if (lifetimes.current[i] > maxLifes.current[i]) {
-        // Respawn at base
-        lifetimes.current[i] = 0;
-        positions.current[i * 3 + 0] = (Math.random() - 0.5) * 3.5;
-        positions.current[i * 3 + 1] = 0.5;
-        positions.current[i * 3 + 2] = -1.5 - Math.random() * 2;
-        velocities.current[i * 3 + 0] = (Math.random() - 0.5) * 0.15;
-        velocities.current[i * 3 + 1] = 0.2 + Math.random() * 0.25;
-      }
-      positions.current[i * 3 + 0] += velocities.current[i * 3 + 0] * delta;
-      positions.current[i * 3 + 1] += velocities.current[i * 3 + 1] * delta;
-    }
-    geoRef.current.attributes.position.needsUpdate = true;
-    // Fade opacity based on focus
-    const targetOpacity = isFocusing ? 0.45 : 0.15;
-    matRef.current.opacity += (targetOpacity - matRef.current.opacity) * 0.05;
-  });
-
-  return (
-    <points>
-      <bufferGeometry ref={geoRef}>
-        <bufferAttribute
-          attach="attributes-position"
-          args={[positions.current, 3]}
-        />
-      </bufferGeometry>
-      <pointsMaterial
-        ref={matRef}
-        size={0.06}
-        color="#88ccff"
-        transparent
-        opacity={0.15}
-        depthWrite={false}
-        sizeAttenuation
-      />
-    </points>
   );
 }
 
@@ -162,21 +98,25 @@ export default function Island({ player, position, isOwn, onClick }: IslandProps
 
       <IslandBlocks level={displayLevel} />
       <IslandDecor level={displayLevel} />
-      <IslandParticles isFocusing={isFocusing} />
 
-      {animalsToShow.map((animalId, i) => (
-        <Animal
-          key={`${animalId}-${i}`}
-          animalId={animalId}
-          slot={i}
-          total={animalsToShow.length}
-          isFocusing={isFocusing}
-          walkRadius={layout.walkRadius}
-        />
-      ))}
+      {animalsToShow.map((animalId, i) => {
+        const animalData = SHOP_ANIMALS.find(a => a.id === animalId);
+        const rarity = animalData?.rarity ?? 'common';
+        return (
+          <Animal
+            key={`${animalId}-${i}`}
+            animalId={animalId}
+            slot={i}
+            total={animalsToShow.length}
+            isFocusing={isFocusing}
+            walkRadius={layout.walkRadius}
+            rarity={rarity}
+          />
+        );
+      })}
 
       <Html
-        position={[0, ISLAND_SURFACE_Y + 2.8, 0]}
+        position={[0, ISLAND_SURFACE_Y + 3.2, 0]}
         center
         distanceFactor={12}
         style={{ pointerEvents: 'none', userSelect: 'none', visibility: shopOpen ? 'hidden' : 'visible' }}
@@ -196,6 +136,7 @@ export default function Island({ player, position, isOwn, onClick }: IslandProps
 
 BLOCK_MODELS.forEach((m) => useGLTF.preload(`/models/blocks/${m}.glb`));
 useGLTF.preload('/models/blocks/tree-pine.glb');
+useGLTF.preload('/models/blocks/tree-pine-snow-small.glb');
 useGLTF.preload('/models/blocks/flowers-tall.glb');
 useGLTF.preload('/models/blocks/mushrooms.glb');
 useGLTF.preload('/models/blocks/plant.glb');
