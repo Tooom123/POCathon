@@ -10,7 +10,7 @@ export default function Lobby() {
 
   function connect(lobbyCode?: string) {
     if (!name.trim()) return;
-    const { ownedAnimals, islandLevel, placedDecors, productiveSeconds } = useGameStore.getState();
+    const { ownedAnimals, islandLevel, placedDecors } = useGameStore.getState();
     socket.connect();
     socket.emit('join_lobby', {
       code: lobbyCode,
@@ -19,7 +19,6 @@ export default function Lobby() {
       ownedAnimals,
       islandLevel,
       placedDecors,
-      totalWorkSeconds: productiveSeconds,
     });
   }
 

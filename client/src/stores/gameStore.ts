@@ -1,8 +1,6 @@
 import { create } from 'zustand';
-import { DecorModel } from '../animals';
+import { DecorModel, getTotalIncome, getTotalDecorIncome, getIslandLevel } from '../animals';
 import socket from '../socket';
-import { useAuthStore } from './authStore';
-import { fetchProfile, apiBuyAnimal, apiBuyDecor, apiUpgradeIsland, UserProfile } from '../api/userApi';
 
 export interface PlacedDecor {
   id: DecorModel;
@@ -22,24 +20,11 @@ export interface PlayerState {
   islandIndex: number;
   islandLevel: number;
   ownedAnimals: string[];
+  placedDecors?: PlacedDecor[];
   incomePerSec: number;
 }
 
 interface GameStore {
-  // Server-synced state
-  coins: number;
-  ownedAnimals: string[];
-  islandLevel: number;
-  productiveSeconds: number;
-  incomePerSec: number;
-  islandCapacity: number;
-  islandDecorCapacity: number;
-  islandUpgradeCost: number | null;
-
-  // Local-only (positions)
-  placedDecors: PlacedDecor[];
-
-  // Multiplayer state (game server)
   lobbyCode: string | null;
   lobbyName: string | null;
   myId: string | null;
@@ -47,8 +32,13 @@ interface GameStore {
   visitingIslandId: string | null;
   shopOpen: boolean;
 
-  // Actions
-  initFromProfile: (profile: UserProfile) => void;
+  coins: number;
+  ownedAnimals: string[];
+  islandLevel: number;
+  placedDecors: PlacedDecor[];
+  lastTickTime: number;
+  incomePerSec: number;
+
   setLobby: (code: string, name: string | null, myId: string, players: Record<string, PlayerState>) => void;
   addPlayer: (player: PlayerState) => void;
   removePlayer: (id: string) => void;
@@ -56,30 +46,29 @@ interface GameStore {
   updatePlayerTick: (id: string, liveTotal: number, liveUnlocked: number, incomePerSec?: number) => void;
   visitIsland: (id: string | null) => void;
 
-  buyAnimal: (animalId: string) => Promise<boolean>;
+  tickCoins: () => void;
+  buyAnimal: (animalId: string, cost: number) => boolean;
   removeAnimal: (index: number) => void;
-  buyDecor: (decorId: DecorModel, scale: number) => Promise<boolean>;
+  buyDecor: (decorId: DecorModel, cost: number, scale: number) => boolean;
   removeDecor: (index: number) => void;
-  upgradeIsland: () => Promise<boolean>;
-  setShopOpen: (open: boolean) => void;
+  upgradeIsland: () => boolean;
   resetIsland: () => void;
-  refreshProfile: () => Promise<void>;
+  setShopOpen: (open: boolean) => void;
 }
 
-// Only positions are stored locally — ownership comes from server.
-const POSITIONS_KEY = 'focusisland-decor-positions';
+const SAVE_KEY = 'focusisland-v3';
 
-function loadPositions(): PlacedDecor[] {
+function loadSaved() {
   try {
-    const raw = localStorage.getItem(POSITIONS_KEY);
-    return raw ? JSON.parse(raw) : [];
+    const raw = localStorage.getItem(SAVE_KEY);
+    return raw ? JSON.parse(raw) : {};
   } catch {
-    return [];
+    return {};
   }
 }
 
-function savePositions(decors: PlacedDecor[]) {
-  localStorage.setItem(POSITIONS_KEY, JSON.stringify(decors));
+function save(coins: number, ownedAnimals: string[], islandLevel: number, placedDecors: PlacedDecor[] = []) {
+  localStorage.setItem(SAVE_KEY, JSON.stringify({ coins, ownedAnimals, islandLevel, placedDecors }));
 }
 
 function randomDecorPosition(decorId: DecorModel, scale: number): PlacedDecor {
@@ -88,44 +77,9 @@ function randomDecorPosition(decorId: DecorModel, scale: number): PlacedDecor {
   return { id: decorId, x: Math.cos(angle) * r, z: Math.sin(angle) * r, rotY: Math.random() * Math.PI * 2, scale };
 }
 
-// Reconcile local positions with server ownership counts.
-// Keeps existing positions when possible; adds random positions for new items.
-function reconcileDecors(serverDecors: string[], localDecors: PlacedDecor[]): PlacedDecor[] {
-  const serverCounts: Record<string, number> = {};
-  for (const id of serverDecors) serverCounts[id] = (serverCounts[id] ?? 0) + 1;
-
-  const localByType: Record<string, PlacedDecor[]> = {};
-  for (const d of localDecors) (localByType[d.id] ??= []).push(d);
-
-  const result: PlacedDecor[] = [];
-  for (const [id, count] of Object.entries(serverCounts)) {
-    const existing = localByType[id] ?? [];
-    for (let i = 0; i < count; i++) {
-      result.push(i < existing.length ? existing[i] : randomDecorPosition(id as DecorModel, 1));
-    }
-  }
-  return result;
-}
-
-async function _refetchAndApply(get: () => GameStore) {
-  const token = useAuthStore.getState().token;
-  if (!token) return;
-  const profile = await fetchProfile(token);
-  get().initFromProfile(profile);
-}
+const saved = loadSaved();
 
 export const useGameStore = create<GameStore>((set, get) => ({
-  coins: 0,
-  ownedAnimals: [],
-  islandLevel: 1,
-  productiveSeconds: 0,
-  incomePerSec: 0,
-  islandCapacity: 1,
-  islandDecorCapacity: 0,
-  islandUpgradeCost: null,
-
-  placedDecors: loadPositions(),
-
   lobbyCode: null,
   lobbyName: null,
   myId: null,
@@ -133,31 +87,12 @@ export const useGameStore = create<GameStore>((set, get) => ({
   visitingIslandId: null,
   shopOpen: false,
 
-  initFromProfile: (profile) => {
-    const localDecors = get().placedDecors;
-    const reconciledDecors = reconcileDecors(profile.decors, localDecors);
-    savePositions(reconciledDecors);
-    set({
-      coins: profile.balance,
-      ownedAnimals: profile.pets,
-      islandLevel: profile.island_level,
-      productiveSeconds: profile.productive_seconds,
-      incomePerSec: profile.income_per_sec,
-      islandCapacity: profile.island_capacity,
-      islandDecorCapacity: profile.island_decor_capacity,
-      islandUpgradeCost: profile.island_upgrade_cost,
-      placedDecors: reconciledDecors,
-    });
-    // Keep game server in sync
-    const { myId, players, lobbyCode } = get();
-    if (lobbyCode && myId && players[myId]) {
-      socket.emit('sync_state', {
-        ownedAnimals: profile.pets,
-        islandLevel: profile.island_level,
-        placedDecors: reconciledDecors,
-      });
-    }
-  },
+  coins: saved.coins ?? 0,
+  ownedAnimals: saved.ownedAnimals ?? ['bunny'],
+  islandLevel: saved.islandLevel ?? 1,
+  placedDecors: saved.placedDecors ?? [],
+  lastTickTime: Date.now(),
+  incomePerSec: getTotalIncome(saved.ownedAnimals ?? ['bunny']) + getTotalDecorIncome((saved.placedDecors ?? []).map((d: PlacedDecor) => d.id)),
 
   setLobby: (code, name, myId, players) => set({ lobbyCode: code, lobbyName: name, myId, players }),
   addPlayer: (player) => set((s) => ({ players: { ...s.players, [player.id]: player } })),
@@ -176,79 +111,85 @@ export const useGameStore = create<GameStore>((set, get) => ({
     }),
   visitIsland: (id) => set({ visitingIslandId: id }),
 
-  buyAnimal: async (animalId) => {
-    const token = useAuthStore.getState().token;
-    if (!token) return false;
-    try {
-      await apiBuyAnimal(token, animalId);
-      await _refetchAndApply(get);
-      return true;
-    } catch {
-      return false;
+  tickCoins: () => {
+    const { lastTickTime, ownedAnimals, coins, islandLevel, placedDecors, players, myId } = get();
+    const me = myId ? players[myId] : null;
+    if (!me?.isFocusing) {
+      set({ lastTickTime: Date.now() });
+      return;
     }
+    const dt = (Date.now() - lastTickTime) / 1000;
+    const income = getTotalIncome(ownedAnimals) + getTotalDecorIncome(placedDecors.map((d) => d.id));
+    const next = coins + income * dt;
+    set({ coins: next, lastTickTime: Date.now(), incomePerSec: income });
+    save(next, ownedAnimals, islandLevel, placedDecors);
+  },
+
+  buyAnimal: (animalId, cost) => {
+    const { coins, ownedAnimals, islandLevel, placedDecors } = get();
+    if (coins < cost) return false;
+    const nextCoins = coins - cost;
+    const next = [...ownedAnimals, animalId];
+    const income = getTotalIncome(next) + getTotalDecorIncome(placedDecors.map((d) => d.id));
+    set({ coins: nextCoins, ownedAnimals: next, incomePerSec: income });
+    save(nextCoins, next, islandLevel, placedDecors);
+    socket.emit('sync_state', { ownedAnimals: next, islandLevel, placedDecors });
+    return true;
   },
 
   removeAnimal: (index) => {
     const { ownedAnimals, islandLevel, placedDecors } = get();
     const next = ownedAnimals.filter((_, i) => i !== index);
-    set({ ownedAnimals: next });
+    const income = getTotalIncome(next) + getTotalDecorIncome(placedDecors.map((d) => d.id));
+    set({ ownedAnimals: next, incomePerSec: income });
+    save(get().coins, next, islandLevel, placedDecors);
     socket.emit('sync_state', { ownedAnimals: next, islandLevel, placedDecors });
   },
 
-  buyDecor: async (decorId, scale) => {
-    const token = useAuthStore.getState().token;
-    if (!token) return false;
-    try {
-      await apiBuyDecor(token, decorId);
-      // Add position locally before refetch for immediate visual feedback
-      const newDecor = randomDecorPosition(decorId, scale);
-      const { placedDecors, ownedAnimals, islandLevel } = get();
-      const nextDecors = [...placedDecors, newDecor];
-      savePositions(nextDecors);
-      set({ placedDecors: nextDecors });
-      socket.emit('sync_state', { ownedAnimals, islandLevel, placedDecors: nextDecors });
-      // Then sync coins/state from server
-      await _refetchAndApply(get);
-      return true;
-    } catch {
-      return false;
-    }
+  buyDecor: (decorId, cost, scale) => {
+    const { coins, ownedAnimals, islandLevel, placedDecors } = get();
+    const { decorCapacity } = getIslandLevel(islandLevel);
+    if (coins < cost || placedDecors.length >= decorCapacity) return false;
+    const nextCoins = coins - cost;
+    const newDecor = randomDecorPosition(decorId, scale);
+    const next = [...placedDecors, newDecor];
+    const income = getTotalIncome(ownedAnimals) + getTotalDecorIncome(next.map((d) => d.id));
+    set({ coins: nextCoins, placedDecors: next, incomePerSec: income });
+    save(nextCoins, ownedAnimals, islandLevel, next);
+    socket.emit('sync_state', { ownedAnimals, islandLevel, placedDecors: next });
+    return true;
   },
 
   removeDecor: (index) => {
     const { ownedAnimals, islandLevel, placedDecors } = get();
     const next = placedDecors.filter((_, i) => i !== index);
-    savePositions(next);
-    set({ placedDecors: next });
+    const income = getTotalIncome(ownedAnimals) + getTotalDecorIncome(next.map((d) => d.id));
+    set({ placedDecors: next, incomePerSec: income });
+    save(get().coins, ownedAnimals, islandLevel, next);
     socket.emit('sync_state', { ownedAnimals, islandLevel, placedDecors: next });
   },
 
-  upgradeIsland: async () => {
-    const token = useAuthStore.getState().token;
-    if (!token) return false;
-    try {
-      await apiUpgradeIsland(token);
-      await _refetchAndApply(get);
-      return true;
-    } catch {
-      return false;
-    }
+  upgradeIsland: () => {
+    const { coins, ownedAnimals, islandLevel, placedDecors } = get();
+    const { upgradeCost } = getIslandLevel(islandLevel);
+    if (!upgradeCost || coins < upgradeCost) return false;
+    const nextCoins = coins - upgradeCost;
+    const nextLevel = islandLevel + 1;
+    set({ coins: nextCoins, islandLevel: nextLevel });
+    save(nextCoins, ownedAnimals, nextLevel, placedDecors);
+    socket.emit('sync_state', { ownedAnimals, islandLevel: nextLevel, placedDecors });
+    return true;
   },
 
   resetIsland: () => {
-    savePositions([]);
-    set({ coins: 0, ownedAnimals: ['bunny'], islandLevel: 1, placedDecors: [] });
+    save(0, ['bunny'], 1, []);
+    set({ coins: 0, ownedAnimals: ['bunny'], islandLevel: 1, placedDecors: [], incomePerSec: 0 });
     socket.emit('sync_state', { ownedAnimals: ['bunny'], islandLevel: 1, placedDecors: [] });
   },
 
   setShopOpen: (open) => set({ shopOpen: open }),
-
-  refreshProfile: async () => {
-    await _refetchAndApply(get);
-  },
 }));
 
-// Commit focus session on page close
 if (typeof window !== 'undefined') {
   window.addEventListener('beforeunload', () => {
     const { myId, players } = useGameStore.getState();

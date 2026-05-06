@@ -1,53 +1,25 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useGameStore } from '../stores/gameStore';
-import { useAuthStore } from '../stores/authStore';
-import { ISLAND_LEVELS, RARITY_COLORS, RARITY_LABELS, formatCoins, getIslandLevel, SHOP_DECORS } from '../animals';
-import { fetchShopAnimals, fetchShopDecors, ShopAnimal, ShopDecor } from '../api/userApi';
+import { SHOP_ANIMALS, SHOP_DECORS, ISLAND_LEVELS, RARITY_COLORS, RARITY_LABELS, formatCoins, getIslandLevel } from '../animals';
 
 type Tab = 'animals' | 'island' | 'decor';
 
 export default function Shop() {
-  const { coins, ownedAnimals, islandLevel, buyAnimal, upgradeIsland, buyDecor, placedDecors, setShopOpen, productiveSeconds, islandCapacity, islandDecorCapacity, islandUpgradeCost } = useGameStore();
-  const token = useAuthStore((s) => s.token);
+  const { coins, ownedAnimals, islandLevel, buyAnimal, upgradeIsland, buyDecor, placedDecors, setShopOpen } = useGameStore();
   const [tab, setTab] = useState<Tab>('animals');
   const [shakeId, setShakeId] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [serverAnimals, setServerAnimals] = useState<ShopAnimal[] | null>(null);
-  const [serverDecors, setServerDecors] = useState<ShopDecor[] | null>(null);
 
-  useEffect(() => {
-    if (!token) return;
-    fetchShopAnimals(token).then(setServerAnimals).catch(() => {});
-    fetchShopDecors(token).then(setServerDecors).catch(() => {});
-  }, [token]);
-
-  async function tryBuyAnimal(animalId: string) {
-    if (busy) return;
-    setBusy(true);
-    const ok = await buyAnimal(animalId);
-    setBusy(false);
-    if (ok && token) {
-      fetchShopAnimals(token).then(setServerAnimals).catch(() => {});
-      fetchShopDecors(token).then(setServerDecors).catch(() => {});
-    } else if (!ok) {
-      setShakeId(animalId);
-      setTimeout(() => setShakeId(null), 450);
-    }
-  }
-
-  async function tryUpgradeIsland() {
-    if (busy) return;
-    setBusy(true);
-    const ok = await upgradeIsland();
-    setBusy(false);
+  function tryBuy(id: string, fn: () => boolean) {
+    const ok = fn();
     if (!ok) {
-      setShakeId('island');
+      setShakeId(id);
       setTimeout(() => setShakeId(null), 450);
     }
   }
 
   const islandInfo = getIslandLevel(islandLevel);
-  const atCapacity = ownedAnimals.length >= islandCapacity;
+  const { capacity, decorCapacity } = islandInfo;
+  const atCapacity = ownedAnimals.length >= capacity;
 
   return (
     <div className="shop-overlay" onMouseDown={() => setShopOpen(false)}>
@@ -67,66 +39,49 @@ export default function Shop() {
         <div className="shop-capacity-bar">
           <span>{islandInfo.label}</span>
           <span className={atCapacity ? 'cap-full' : ''}>
-            🐾 {ownedAnimals.length} / {islandCapacity}
+            🐾 {ownedAnimals.length} / {capacity}
             {atCapacity && ' — île pleine !'}
           </span>
-          <span className="shop-focus-time">⏱ {fmtSec(productiveSeconds)} de focus</span>
         </div>
 
         {/* ANIMALS TAB */}
         {tab === 'animals' && (
           <div className="shop-grid">
-            {serverAnimals === null ? (
-              <p style={{ color: '#6a8a6a', padding: '16px' }}>Chargement...</p>
-            ) : serverAnimals.map((animal) => {
-              const isLegendary = animal.rarity === 'legendary';
-              const showMystery = !animal.unlocked && isLegendary;
+            {SHOP_ANIMALS.map((animal) => {
+              const owned = ownedAnimals.includes(animal.id);
               const previewSrc = `/previews/animals/animal-${animal.id}.png`;
+              const canAfford = coins >= animal.cost;
 
               return (
                 <div
                   key={animal.id}
-                  className={`shop-card ${!animal.unlocked ? 'shop-card--locked' : ''} ${animal.owned ? 'shop-card--owned' : ''}`}
+                  className={`shop-card ${owned ? 'shop-card--owned' : ''}`}
                   style={{ '--rarity-color': RARITY_COLORS[animal.rarity as keyof typeof RARITY_COLORS] ?? '#aaa' } as React.CSSProperties}
                 >
                   <div className="shop-card-rarity-bar" style={{ background: RARITY_COLORS[animal.rarity as keyof typeof RARITY_COLORS] ?? '#aaa' }} />
-
                   <div className="shop-card-img-wrap">
-                    {showMystery ? (
-                      <div className="shop-card-mystery">?</div>
-                    ) : (
-                      <>
-                        <img src={previewSrc} alt={animal.name} className="shop-card-img" draggable={false} />
-                        {!animal.unlocked && <div className="shop-card-lock-overlay">🔒</div>}
-                      </>
-                    )}
-                    {animal.owned && <div className="shop-card-owned-badge">✓</div>}
+                    <img src={previewSrc} alt={animal.name} className="shop-card-img" draggable={false} />
+                    {owned && <div className="shop-card-owned-badge">✓</div>}
                   </div>
-
-                  <div className="shop-card-name">{showMystery ? '???' : animal.name}</div>
+                  <div className="shop-card-name">{animal.name}</div>
                   <div className="shop-card-rarity-label" style={{ color: RARITY_COLORS[animal.rarity as keyof typeof RARITY_COLORS] ?? '#aaa' }}>
                     {RARITY_LABELS[animal.rarity as keyof typeof RARITY_LABELS] ?? animal.rarity}
                   </div>
-                  {!showMystery && <div className="shop-card-income">+{formatCoins(animal.income_per_sec)}/s</div>}
+                  <div className="shop-card-income">+{formatCoins(animal.incomePerSec)}/s</div>
 
-                  {!animal.unlocked ? (
-                    <div className="shop-card-lock-msg">
-                      {showMystery ? '???' : `🔒 Focus encore ${fmtSec(animal.unlock_seconds - productiveSeconds)}`}
-                    </div>
-                  ) : animal.owned ? (
+                  {owned ? (
                     <div className="shop-card-lock-msg" style={{ color: '#55cc55' }}>✓ Possédé</div>
                   ) : atCapacity ? (
                     <div className="shop-card-lock-msg cap-full">Île pleine</div>
                   ) : (
                     <>
                       <button
-                        className={`shop-btn-buy ${!animal.can_afford || busy ? 'shop-btn-buy--disabled' : ''} ${shakeId === animal.id ? 'shake' : ''}`}
-                        onClick={() => tryBuyAnimal(animal.id)}
-                        disabled={busy || animal.owned}
+                        className={`shop-btn-buy ${!canAfford ? 'shop-btn-buy--disabled' : ''} ${shakeId === animal.id ? 'shake' : ''}`}
+                        onClick={() => tryBuy(animal.id, () => buyAnimal(animal.id, animal.cost))}
                       >
                         🪙 {formatCoins(animal.cost)}
                       </button>
-                      {!animal.can_afford && shakeId === animal.id && (
+                      {!canAfford && shakeId === animal.id && (
                         <div className="shop-card-error">Pas assez de coins</div>
                       )}
                     </>
@@ -145,7 +100,7 @@ export default function Shop() {
               <div>
                 <div className="island-current-name">{islandInfo.label} — Niveau {islandLevel}</div>
                 <div className="island-current-stats">
-                  Capacité : {islandCapacity} animaux · {islandInfo.gridN}×{islandInfo.gridN} blocs
+                  Capacité : {capacity} animaux · {islandInfo.gridN}×{islandInfo.gridN} blocs
                 </div>
               </div>
             </div>
@@ -156,7 +111,7 @@ export default function Shop() {
                 const isNext = lvl.level === islandLevel + 1;
                 const prevLevel = getIslandLevel(lvl.level - 1);
                 const addedSlots = lvl.capacity - prevLevel.capacity;
-                const cost = islandUpgradeCost ?? prevLevel.upgradeCost;
+                const cost = prevLevel.upgradeCost ?? 0;
                 const canAfford = coins >= cost;
 
                 return (
@@ -169,9 +124,8 @@ export default function Shop() {
                     ) : isNext ? (
                       <>
                         <button
-                          className={`shop-btn-buy upgrade-btn ${!canAfford || busy ? 'shop-btn-buy--disabled' : ''} ${shakeId === 'island' ? 'shake' : ''}`}
-                          onClick={() => tryUpgradeIsland()}
-                          disabled={busy}
+                          className={`shop-btn-buy upgrade-btn ${!canAfford ? 'shop-btn-buy--disabled' : ''} ${shakeId === 'island' ? 'shake' : ''}`}
+                          onClick={() => tryBuy('island', () => upgradeIsland())}
                         >
                           🪙 {formatCoins(cost)}
                         </button>
@@ -194,54 +148,35 @@ export default function Shop() {
           <div className="shop-grid">
             <div className="shop-capacity-bar" style={{ gridColumn: '1 / -1' }}>
               <span>Décors</span>
-              <span className={placedDecors.length >= islandDecorCapacity ? 'cap-full' : ''}>
-                🌲 {placedDecors.length} / {islandDecorCapacity}
-                {placedDecors.length >= islandDecorCapacity && ' — slots pleins !'}
+              <span className={placedDecors.length >= decorCapacity ? 'cap-full' : ''}>
+                🌲 {placedDecors.length} / {decorCapacity}
+                {placedDecors.length >= decorCapacity && ' — slots pleins !'}
               </span>
             </div>
-            {serverDecors === null ? (
-              <p style={{ color: '#6a8a6a', padding: '16px' }}>Chargement...</p>
-            ) : serverDecors.map((decor) => {
-              const clientDecor = SHOP_DECORS.find((d) => d.id === decor.id);
-              const scale = clientDecor?.scale ?? 1;
-              const slotsFull = placedDecors.length >= islandDecorCapacity;
+            {SHOP_DECORS.map((decor) => {
+              const slotsFull = placedDecors.length >= decorCapacity;
+              const canAfford = coins >= decor.cost;
+              const owned = placedDecors.filter((d) => d.id === decor.id).length;
 
               return (
-                <div key={decor.id} className={`shop-card ${!decor.unlocked ? 'shop-card--locked' : ''}`}>
+                <div key={decor.id} className="shop-card">
                   <div className="shop-card-img-wrap">
                     <img src={`/previews/decors/${decor.id}.png`} alt={decor.name} className="shop-card-img" draggable={false} />
-                    {!decor.unlocked && <div className="shop-card-lock-overlay">🔒</div>}
-                    {decor.count > 0 && <div className="shop-card-owned-badge">×{decor.count}</div>}
+                    {owned > 0 && <div className="shop-card-owned-badge">×{owned}</div>}
                   </div>
                   <div className="shop-card-name">{decor.name}</div>
-                  <div className="shop-card-income">+{formatCoins(decor.income_per_sec)}/s</div>
-                  {!decor.unlocked ? (
-                    <div className="shop-card-lock-msg">
-                      🔒 Focus encore {fmtSec(decor.unlock_seconds - productiveSeconds)}
-                    </div>
-                  ) : slotsFull ? (
+                  <div className="shop-card-income">+{formatCoins(decor.incomePerSec)}/s</div>
+                  {slotsFull ? (
                     <div className="shop-card-lock-msg cap-full">Slots pleins</div>
                   ) : (
                     <>
                       <button
-                        className={`shop-btn-buy ${!decor.can_buy || busy ? 'shop-btn-buy--disabled' : ''} ${shakeId === `decor-${decor.id}` ? 'shake' : ''}`}
-                        disabled={busy}
-                        onClick={async () => {
-                          if (busy) return;
-                          setBusy(true);
-                          const ok = await buyDecor(decor.id as any, scale);
-                          setBusy(false);
-                          if (ok && token) {
-                            fetchShopDecors(token).then(setServerDecors).catch(() => {});
-                          } else if (!ok) {
-                            setShakeId(`decor-${decor.id}`);
-                            setTimeout(() => setShakeId(null), 450);
-                          }
-                        }}
+                        className={`shop-btn-buy ${!canAfford ? 'shop-btn-buy--disabled' : ''} ${shakeId === `decor-${decor.id}` ? 'shake' : ''}`}
+                        onClick={() => tryBuy(`decor-${decor.id}`, () => buyDecor(decor.id, decor.cost, decor.scale))}
                       >
                         🪙 {formatCoins(decor.cost)}
                       </button>
-                      {!decor.can_buy && shakeId === `decor-${decor.id}` && (
+                      {!canAfford && shakeId === `decor-${decor.id}` && (
                         <div className="shop-card-error">Pas assez de coins</div>
                       )}
                     </>
@@ -256,12 +191,3 @@ export default function Shop() {
   );
 }
 
-function fmtSec(s: number): string {
-  if (s <= 0) return '0s';
-  const h = Math.floor(s / 3600);
-  const m = Math.floor((s % 3600) / 60);
-  const sec = s % 60;
-  if (h > 0) return `${h}h ${m}m`;
-  if (m > 0) return `${m}m ${sec}s`;
-  return `${sec}s`;
-}
