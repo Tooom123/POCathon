@@ -54,5 +54,34 @@ def _migrate(conn: sqlite3.Connection) -> None:
         );
 
         CREATE INDEX IF NOT EXISTS idx_tokens_expires ON auth_tokens(expires_at);
+
+        CREATE TABLE IF NOT EXISTS user_pets (
+            id         INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id    TEXT NOT NULL,
+            animal_id  TEXT NOT NULL,
+            cost       REAL NOT NULL,
+            bought_at  TEXT NOT NULL,
+            UNIQUE(user_id, animal_id)
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_pets_user ON user_pets(user_id);
+
+        CREATE TABLE IF NOT EXISTS user_islands (
+            user_id           TEXT PRIMARY KEY,
+            island_level      INTEGER NOT NULL DEFAULT 1,
+            spent_on_upgrades REAL    NOT NULL DEFAULT 0
+        );
+
+        -- Decors: multi-purchase allowed (no UNIQUE constraint).
+        -- Each row is one purchased decor slot.
+        CREATE TABLE IF NOT EXISTS user_decors (
+            id        INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id   TEXT NOT NULL,
+            decor_id  TEXT NOT NULL,
+            cost      REAL NOT NULL,
+            bought_at TEXT NOT NULL
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_decors_user ON user_decors(user_id);
     """)
     conn.commit()

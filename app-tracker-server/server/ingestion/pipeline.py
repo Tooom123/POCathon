@@ -2,7 +2,7 @@ import sqlite3
 from datetime import datetime, timedelta, timezone
 
 from server.models.schemas import IngestResponse, RejectedSession, ReportPayload, SessionPayload
-from server.storage.repository import StoredSession, find_overlapping, insert_session, is_duplicate
+from server.storage.repository import StoredSession, find_overlapping, upsert_session
 
 RECENCY_WINDOW_MINUTES = 15
 DURATION_TOLERANCE_SECONDS = 5  # allowed drift between duration field and timestamp diff
@@ -53,18 +53,8 @@ def ingest_report(
             duration=session.duration,
             received_at=received_at,
         )
-        inserted = insert_session(conn, stored)
-        if inserted:
-            accepted += 1
-        else:
-            rejected.append(
-                RejectedSession(
-                    app=session.app,
-                    started_at=session.started_at,
-                    ended_at=session.ended_at,
-                    reason="duplicate: identical session already recorded",
-                )
-            )
+        upsert_session(conn, stored)
+        accepted += 1
 
     return IngestResponse(accepted=accepted, rejected=rejected)
 
@@ -92,16 +82,17 @@ def _validate(
     if started_utc > now:
         return f"invalid: started_at {session.started_at.isoformat()} is in the future"
 
-    # 3. Exact duplicate (same user, app, started_at) — checked before overlap
-    if is_duplicate(conn, user_id, session.app, session.started_at.replace(tzinfo=None)):
-        return "duplicate: identical session already recorded"
-
-    # 4. Overlap with already-stored sessions for this user
+    # 3. Overlap with already-stored sessions for this user.
+    # Exclude the session being upserted (same app + started_at) so that live
+    # updates extending an in-progress session are never flagged as self-overlap.
+    started_naive = session.started_at.replace(tzinfo=None)
     overlap = find_overlapping(
         conn,
         user_id,
-        session.started_at.replace(tzinfo=None),
+        started_naive,
         session.ended_at.replace(tzinfo=None),
+        exclude_app=session.app,
+        exclude_started_at=started_naive,
     )
     if overlap:
         return (

@@ -1,13 +1,13 @@
 import secrets
 import string
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, timezone
 
 from server.storage.token_repository import AuthToken
 
 TOKEN_CHARS = string.ascii_uppercase + string.digits
 TOKEN_LENGTH = 8
 PENDING_TTL_MINUTES = 10   # browser must have the PC link within 10 min
-LINKED_TTL_HOURS = 24      # linked token stays valid 24 h
+LINKED_TTL_DAYS = 7        # linked token stays valid 7 days; refreshable before expiry
 
 
 def generate_token() -> str:
@@ -20,7 +20,7 @@ def pending_expiry() -> datetime:
 
 
 def linked_expiry() -> datetime:
-    return datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(hours=LINKED_TTL_HOURS)
+    return datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(days=LINKED_TTL_DAYS)
 
 
 def token_is_usable(token: AuthToken | None) -> bool:

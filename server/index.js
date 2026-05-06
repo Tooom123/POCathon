@@ -56,7 +56,7 @@ io.on('connection', (socket) => {
   socket.on('pong_ack', () => { /* still alive */ });
 
   // Create or join lobby
-  socket.on('join_lobby', ({ code, playerName, lobbyName, ownedAnimals, islandLevel, placedDecors }) => {
+  socket.on('join_lobby', ({ code, playerName, lobbyName, ownedAnimals, islandLevel, placedDecors, totalWorkSeconds }) => {
     let lobbyCode = code ? code.toUpperCase() : generateCode();
     if (!lobbies[lobbyCode]) {
       lobbies[lobbyCode] = { players: {}, name: lobbyName || null };
@@ -67,7 +67,7 @@ io.on('connection', (socket) => {
     lobby.players[socket.id] = {
       id: socket.id,
       name: playerName || 'Joueur',
-      totalWorkSeconds: 0,
+      totalWorkSeconds: totalWorkSeconds ?? 0,
       isFocusing: false,
       focusStartedAt: null,
       unlockedAnimals: 1,

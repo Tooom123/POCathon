@@ -1,7 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { useGameStore } from '../stores/gameStore';
-import { formatCoins, getTotalIncome, getTotalDecorIncome, getIslandLevel } from '../animals';
+import { useAuthStore } from '../stores/authStore';
+import { formatCoins, getIslandLevel } from '../animals';
+import { reportSessions } from '../api/userApi';
 import socket from '../socket';
+
+const BASE_URL = 'http://localhost:8000';
 
 function formatTime(secs: number): string {
   const h = Math.floor(secs / 3600);
@@ -13,11 +17,15 @@ function formatTime(secs: number): string {
 }
 
 export default function HUD() {
-  const { myId, players, lobbyCode, lobbyName, coins, ownedAnimals, islandLevel, placedDecors, setShopOpen, shopOpen, tickCoins, resetIsland } = useGameStore();
+  const { myId, players, lobbyCode, lobbyName, coins, ownedAnimals, islandLevel, incomePerSec, setShopOpen, shopOpen, resetIsland, refreshProfile } = useGameStore();
+  const userId = useAuthStore((s) => s.userId);
   const me = myId ? players[myId] : null;
 
-  const sessionStart = useRef<number | null>(null);
+  // sessionStart tracks both the ms timestamp (for duration calc) and the ISO string (for webhook)
+  const sessionStartMs = useRef<number | null>(null);
+  const sessionStartISO = useRef<string | null>(null);
   const [elapsed, setElapsed] = useState(0);
+
   const [muted, setMuted] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
@@ -55,33 +63,71 @@ export default function HUD() {
     }
   }
 
-  // Passive income every 250ms
+  // Commit in-progress session on page close (best-effort via sendBeacon)
   useEffect(() => {
-    const id = setInterval(tickCoins, 250);
-    return () => clearInterval(id);
-  }, []);
+    function handleUnload() {
+      if (!me?.isFocusing || !sessionStartMs.current || !sessionStartISO.current || !userId) return;
+      const duration = Math.floor((Date.now() - sessionStartMs.current) / 1000);
+      if (duration < 5) return;
+      const endedAt = new Date(sessionStartMs.current + duration * 1000).toISOString();
+      navigator.sendBeacon(
+        `${BASE_URL}/webhook/report`,
+        new Blob([JSON.stringify({
+          user_id: userId,
+          sessions: [{ app: 'FocusIsland', category: 'productive', started_at: sessionStartISO.current, ended_at: endedAt, duration }],
+        })], { type: 'application/json' }),
+      );
+    }
+    window.addEventListener('beforeunload', handleUnload);
+    return () => window.removeEventListener('beforeunload', handleUnload);
+  }, [me?.isFocusing, userId]);
 
-  // Live focus timer — starts at click, no server round-trip wait
+  // Live focus timer
   useEffect(() => {
     if (!me?.isFocusing) {
       setElapsed(0);
       return;
     }
-    if (!sessionStart.current) sessionStart.current = Date.now();
+    if (!sessionStartMs.current) {
+      sessionStartMs.current = Date.now();
+      sessionStartISO.current = new Date().toISOString();
+    }
     const id = setInterval(() => {
-      setElapsed(Math.floor((Date.now() - sessionStart.current!) / 1000));
+      setElapsed(Math.floor((Date.now() - sessionStartMs.current!) / 1000));
     }, 1000);
     return () => clearInterval(id);
   }, [me?.isFocusing]);
 
-  function toggleFocus() {
+  async function toggleFocus() {
     if (!me) return;
     if (me.isFocusing) {
+      const startMs = sessionStartMs.current;
+      const startISO = sessionStartISO.current;
       socket.emit('stop_focus');
-      sessionStart.current = null;
+      sessionStartMs.current = null;
+      sessionStartISO.current = null;
       setElapsed(0);
+      // Submit focus session to the server — overlap detection in the pipeline ensures
+      // that if the desktop tracker already submitted a session for this time window,
+      // this call is rejected as an overlap and no double-counting occurs.
+      if (userId && startMs && startISO) {
+        const duration = Math.floor((Date.now() - startMs) / 1000);
+        if (duration >= 5) {
+          const endedAt = new Date(startMs + duration * 1000).toISOString();
+          await reportSessions(userId, [{
+            app: 'FocusIsland',
+            category: 'productive',
+            started_at: startISO,
+            ended_at: endedAt,
+            duration,
+          }]);
+        }
+      }
+      // SSE will pick up the new balance within 3s — refreshProfile as immediate fallback
+      await refreshProfile();
     } else {
-      sessionStart.current = Date.now();
+      sessionStartMs.current = Date.now();
+      sessionStartISO.current = new Date().toISOString();
       setElapsed(0);
       socket.emit('start_focus');
     }
@@ -91,7 +137,6 @@ export default function HUD() {
 
   const totalDisplay = me.totalWorkSeconds + elapsed;
   const focusingCount = Object.values(players).filter((p) => p.isFocusing).length;
-  const incomePerSec = getTotalIncome(ownedAnimals) + getTotalDecorIncome(placedDecors.map((d) => d.id));
   const { capacity, label: islandLabel } = getIslandLevel(islandLevel);
   const atCapacity = ownedAnimals.length >= capacity;
 

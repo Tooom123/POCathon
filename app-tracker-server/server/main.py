@@ -2,8 +2,11 @@ from contextlib import asynccontextmanager
 
 import uvicorn
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from server.api.auth import router as auth_router
+from server.api.shop import router as shop_router
+from server.api.user import router as user_router
 from server.api.webhook import router as webhook_router
 from server.storage.db import get_connection
 
@@ -16,8 +19,18 @@ async def lifespan(application: FastAPI):
 
 
 app = FastAPI(title="App Tracker Server", version="0.1.0", lifespan=lifespan)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 app.include_router(webhook_router)
 app.include_router(auth_router)
+app.include_router(user_router)
+app.include_router(shop_router)
 
 
 @app.get("/health")

@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field
 from uuid import UUID
 
 from server.auth.service import (
-    LINKED_TTL_HOURS,
+    LINKED_TTL_DAYS,
     PENDING_TTL_MINUTES,
     generate_token,
     linked_expiry,
@@ -104,7 +104,7 @@ def link_session(
         (linked_expiry().isoformat(), record.token),
     )
     conn.commit()
-    return {**_token_response(record), "expires_in_seconds": LINKED_TTL_HOURS * 3600}
+    return {**_token_response(record), "expires_in_seconds": LINKED_TTL_DAYS * 86400}
 
 
 @router.get("/token/{token}/status")
@@ -158,6 +158,26 @@ async def token_stream(
         yield _sse({"status": "expired"})
 
     return StreamingResponse(generate(), media_type="text/event-stream")
+
+
+@router.post("/refresh", status_code=200)
+def refresh_session(
+    token: AuthToken = Depends(require_linked_token),
+    conn: sqlite3.Connection = Depends(_get_conn),
+) -> dict:
+    """
+    Browser calls this to extend a linked token's expiry by another 7 days.
+    Recommended: call proactively when less than 24h remain, or reactively on 403.
+    Reuses the same token string — no re-pairing with the PC required.
+    """
+    new_expiry = linked_expiry()
+    conn.execute(
+        "UPDATE auth_tokens SET expires_at = ? WHERE token = ?",
+        (new_expiry.isoformat(), token.token),
+    )
+    conn.commit()
+    token.expires_at = new_expiry
+    return {**_token_response(token), "expires_in_seconds": LINKED_TTL_DAYS * 86400}
 
 
 def _sse(data: dict) -> str:

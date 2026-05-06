@@ -86,12 +86,24 @@ def test_overlap_rejected(conn):
     assert "overlap" in result.rejected[0].reason
 
 
-def test_duplicate_rejected(conn):
+def test_duplicate_upserted(conn):
+    """Sending the exact same session twice counts as accepted both times (upsert)."""
     s = _session(offset_minutes=1)
     ingest_report(conn, _payload([s]))
     result = ingest_report(conn, _payload([s]))
-    assert result.accepted == 0
-    assert "duplicate" in result.rejected[0].reason
+    assert result.accepted == 1
+    assert result.rejected == []
+
+
+def test_duplicate_does_not_create_second_row(conn):
+    """Upserting an identical session must not add a second row to the DB."""
+    s = _session(offset_minutes=1)
+    ingest_report(conn, _payload([s]))
+    ingest_report(conn, _payload([s]))
+    count = conn.execute(
+        "SELECT COUNT(*) FROM sessions WHERE user_id = ?", (str(USER_ID),)
+    ).fetchone()[0]
+    assert count == 1
 
 
 def test_mixed_batch(conn):
@@ -100,3 +112,97 @@ def test_mixed_batch(conn):
     result = ingest_report(conn, _payload([good, old]))
     assert result.accepted == 1
     assert len(result.rejected) == 1
+
+
+# ── live update (upsert) behaviour ───────────────────────────────────────────
+
+def test_live_update_extends_ended_at(conn):
+    """Same (app, started_at), later ended_at → server extends the session, not duplicates."""
+    now = _now()
+    started = now - timedelta(seconds=30)
+
+    s1 = SessionPayload(
+        app="Code", category="productive",
+        started_at=started, ended_at=now - timedelta(seconds=20), duration=10,
+    )
+    s2 = SessionPayload(
+        app="Code", category="productive",
+        started_at=started, ended_at=now - timedelta(seconds=5), duration=25,
+    )
+
+    ingest_report(conn, _payload([s1]))
+    result = ingest_report(conn, _payload([s2]))
+
+    assert result.accepted == 1
+    assert result.rejected == []
+
+    rows = conn.execute("SELECT * FROM sessions WHERE user_id = ?", (str(USER_ID),)).fetchall()
+    assert len(rows) == 1
+    assert rows[0]["duration"] == 25
+
+
+def test_live_update_does_not_trigger_self_overlap(conn):
+    """A growing session (same app + started_at) must never be rejected as self-overlap."""
+    started = _now() - timedelta(seconds=60)
+
+    for i in range(1, 6):
+        s = SessionPayload(
+            app="Code", category="productive",
+            started_at=started,
+            ended_at=started + timedelta(seconds=i * 10),
+            duration=i * 10,
+        )
+        result = ingest_report(conn, _payload([s]))
+        assert result.accepted == 1, f"update #{i} was rejected: {result.rejected}"
+
+    rows = conn.execute("SELECT * FROM sessions WHERE user_id = ?", (str(USER_ID),)).fetchall()
+    assert len(rows) == 1
+    assert rows[0]["duration"] == 50
+
+
+def test_different_app_overlap_still_rejected(conn):
+    """A genuinely overlapping session for a *different* app is still rejected."""
+    s1 = SessionPayload(
+        app="Code", category="productive",
+        started_at=_now() - timedelta(seconds=60),
+        ended_at=_now() - timedelta(seconds=10),
+        duration=50,
+    )
+    ingest_report(conn, _payload([s1]))
+
+    s2 = SessionPayload(
+        app="Firefox", category="neutral",
+        started_at=s1.started_at + timedelta(seconds=5),
+        ended_at=s1.ended_at + timedelta(seconds=5),
+        duration=50,
+    )
+    result = ingest_report(conn, _payload([s2]))
+    assert result.accepted == 0
+    assert "overlap" in result.rejected[0].reason
+
+
+def test_live_sequence_completed_then_new_app(conn):
+    """Simulate desktop flow: VSCode live-updated 3 times, then Chrome starts."""
+    start = _now() - timedelta(seconds=30)
+
+    for i in range(1, 4):
+        s = SessionPayload(
+            app="VSCode", category="productive",
+            started_at=start, ended_at=start + timedelta(seconds=i * 5), duration=i * 5,
+        )
+        result = ingest_report(conn, _payload([s]))
+        assert result.accepted == 1
+
+    # VSCode ends at T+15, Chrome starts at T+15
+    chrome_start = start + timedelta(seconds=15)
+    chrome = SessionPayload(
+        app="Chrome", category="neutral",
+        started_at=chrome_start, ended_at=chrome_start + timedelta(seconds=5), duration=5,
+    )
+    result = ingest_report(conn, _payload([chrome]))
+    assert result.accepted == 1
+
+    rows = conn.execute(
+        "SELECT app FROM sessions WHERE user_id = ? ORDER BY started_at", (str(USER_ID),)
+    ).fetchall()
+    assert [r["app"] for r in rows] == ["VSCode", "Chrome"]

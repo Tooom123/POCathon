@@ -153,7 +153,35 @@ Under the hood this calls `POST /auth/link` with the PC's persistent `user_id`. 
 
 ---
 
-## 3. Authenticated requests
+## 3. Token storage (localStorage)
+
+After a successful pairing, persist the following keys in `localStorage`. Do not use `sessionStorage` — the goal is sessions that survive tab closes and browser restarts.
+
+| Key | Value | Example |
+|---|---|---|
+| `tracker_token` | The Bearer token string | `"A3F2B1C9"` |
+| `tracker_user_id` | The linked `user_id` | `"12345678-..."` |
+| `tracker_expires_at` | ISO-8601 expiry timestamp | `"2026-05-13T10:05:00"` |
+
+On every page load, read `tracker_token` and `tracker_expires_at` first. If the token is present and not expired, skip the pairing flow entirely and go straight to the leaderboard. Only show the pairing screen if the token is absent or expired.
+
+```js
+const token = localStorage.getItem('tracker_token')
+const expiresAt = localStorage.getItem('tracker_expires_at')
+const isValid = token && new Date(expiresAt) > new Date()
+
+if (!isValid) {
+  // show pairing flow
+} else {
+  // go straight to leaderboard, schedule refresh
+}
+```
+
+Clear all three keys on explicit logout, or when the server returns `403` and refresh also fails.
+
+---
+
+## 4. Authenticated requests
 
 Once the token is linked, attach it as a Bearer on every request to protected endpoints.
 
@@ -166,11 +194,68 @@ The `require_linked_token` FastAPI dependency validates the token on each reques
 - `403` if the token is not found, not linked, or expired
 - On success, the dependency resolves to the `AuthToken` record which includes `user_id`
 
-Token lifetime after linking: **24 hours**. When a `403` is received, redirect the user back to the pairing flow to obtain a new token.
+Token lifetime after linking: **7 days**. On `403`, attempt a refresh (see section 5) before falling back to the pairing flow.
 
 ---
 
-## 4. Webhook (reference — PC client only)
+## 5. Session refresh
+
+Linked tokens last 7 days and are renewable indefinitely — the user should never need to re-run `tracker link` as long as the browser refreshes the token before it expires.
+
+```
+POST /auth/refresh
+Authorization: Bearer A3F2B1C9
+```
+
+**Response** `200`
+```json
+{
+  "token": "A3F2B1C9",
+  "status": "linked",
+  "user_id": "12345678-1234-5678-1234-567812345678",
+  "expires_at": "2026-05-13T10:05:00",
+  "expires_in_seconds": 604800
+}
+```
+
+The token string stays the same — only `expires_at` moves forward by 7 days. Update `tracker_expires_at` in localStorage with the new value.
+
+**Error responses:**
+- `401` — no Bearer header
+- `403` — token not found, not linked, or already expired (refresh too late — redirect to pairing flow)
+
+### When to refresh
+
+**Proactive (recommended):** schedule a refresh when less than 24 hours remain on the token. Check on every page load:
+
+```js
+const expiresAt = new Date(localStorage.getItem('tracker_expires_at'))
+const hoursLeft = (expiresAt - new Date()) / 3_600_000
+
+if (hoursLeft < 24) {
+  await refresh()  // POST /auth/refresh, update localStorage
+}
+```
+
+**Reactive (safety net):** if any authenticated request returns `403`, attempt one refresh before deciding whether to show the pairing flow:
+
+```js
+async function apiFetch(url) {
+  let resp = await fetch(url, { headers: authHeaders() })
+  if (resp.status === 403) {
+    const refreshed = await refresh()
+    if (!refreshed) return redirectToPairing()
+    resp = await fetch(url, { headers: authHeaders() })
+  }
+  return resp
+}
+```
+
+Both strategies together guarantee that an active user is never interrupted, and that a returning user after a long absence (> 7 days without opening the app) is cleanly sent back to the pairing flow.
+
+---
+
+## 6. Webhook (reference — PC client only)
 
 The frontend does not call this endpoint. It is documented here for observability — the data it produces is what the leaderboard will query.
 
@@ -219,7 +304,7 @@ Categories sent by the client: `productive`, `distraction`, `neutral`, `unknown`
 
 ---
 
-## 5. End-to-end simulation
+## 7. End-to-end simulation
 
 `scripts/07_full_flow.sh` chains the complete flow in a single script: token request → PC link → status check → session report. Run it against a local server to validate the full integration before implementing the frontend.
 
@@ -236,16 +321,29 @@ uv run tracker-server &   # start the server
 ```
 Browser                        Server                        Desktop PC
   |                              |                               |
+  | [page load — no token]       |                               |
   |-- POST /auth/token --------->|                               |
-  |<- {token: "A3F2B1C9",       |                               |
-  |    status: "pending"} -------|                               |
+  |<- {token:"A3F2B1C9",        |                               |
+  |    status:"pending"} --------|                               |
+  | localStorage.set(token)      |                               |
   |                              |                               |
-  |-- GET /auth/token/.../stream |                               |
-  |   (SSE, waiting...) -------->|                               |
-  |                              |<-- tracker link A3F2B1C9 -----|
+  |-- GET /stream (SSE) -------->|                               |
+  |   waiting...                 |<-- tracker link A3F2B1C9 -----|
   |                              |    POST /auth/link            |
-  |<- data: {status:"linked"} ---|                               |
+  |<- data:{status:"linked"} ----|                               |
+  | localStorage.set(expires_at) |                               |
   |                              |                               |
+  |-- GET /leaderboard           |                               |
+  |   Authorization: Bearer ···->|                               |
+  |<- leaderboard data ----------|                               |
+  |                              |                               |
+  | [later — hoursLeft < 24]     |                               |
+  |-- POST /auth/refresh ------->|                               |
+  |<- {expires_at: +7 days} -----|                               |
+  | localStorage.set(expires_at) |                               |
+  |                              |                               |
+  | [page load — valid token]    |                               |
+  |   skip pairing, check expiry |                               |
   |-- GET /leaderboard           |                               |
   |   Authorization: Bearer ···->|                               |
   |<- leaderboard data ----------|                               |

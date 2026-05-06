@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import socket from '../socket';
+import { useGameStore } from '../stores/gameStore';
 
 export default function Lobby() {
   const [name, setName] = useState('');
@@ -9,8 +10,17 @@ export default function Lobby() {
 
   function connect(lobbyCode?: string) {
     if (!name.trim()) return;
+    const { ownedAnimals, islandLevel, placedDecors, productiveSeconds } = useGameStore.getState();
     socket.connect();
-    socket.emit('join_lobby', { code: lobbyCode, playerName: name.trim(), lobbyName: lobbyName.trim() || null });
+    socket.emit('join_lobby', {
+      code: lobbyCode,
+      playerName: name.trim(),
+      lobbyName: lobbyName.trim() || null,
+      ownedAnimals,
+      islandLevel,
+      placedDecors,
+      totalWorkSeconds: productiveSeconds,
+    });
   }
 
   return (

@@ -31,18 +31,42 @@ def find_overlapping(
     user_id: str,
     started_at: datetime,
     ended_at: datetime,
+    exclude_app: str | None = None,
+    exclude_started_at: datetime | None = None,
 ) -> StoredSession | None:
-    """Return the first existing session for user_id that overlaps [started_at, ended_at], or None."""
-    row = conn.execute(
-        """
-        SELECT * FROM sessions
-        WHERE user_id = ?
-          AND started_at < ?
-          AND ended_at   > ?
-        LIMIT 1
-        """,
-        (user_id, ended_at.isoformat(), started_at.isoformat()),
-    ).fetchone()
+    """Return the first existing session for user_id that overlaps [started_at, ended_at].
+
+    Pass exclude_app + exclude_started_at to skip the session being upserted (live updates).
+    """
+    if exclude_app is not None and exclude_started_at is not None:
+        row = conn.execute(
+            """
+            SELECT * FROM sessions
+            WHERE user_id = ?
+              AND started_at < ?
+              AND ended_at   > ?
+              AND NOT (app = ? AND started_at = ?)
+            LIMIT 1
+            """,
+            (
+                user_id,
+                ended_at.isoformat(),
+                started_at.isoformat(),
+                exclude_app,
+                exclude_started_at.isoformat(),
+            ),
+        ).fetchone()
+    else:
+        row = conn.execute(
+            """
+            SELECT * FROM sessions
+            WHERE user_id = ?
+              AND started_at < ?
+              AND ended_at   > ?
+            LIMIT 1
+            """,
+            (user_id, ended_at.isoformat(), started_at.isoformat()),
+        ).fetchone()
     if row is None:
         return None
     return _row_to_session(row)
@@ -73,12 +97,52 @@ def insert_session(conn: sqlite3.Connection, session: StoredSession) -> bool:
         return False
 
 
+def upsert_session(conn: sqlite3.Connection, session: StoredSession) -> None:
+    """Insert or extend a session matched by (user_id, app, started_at).
+
+    On conflict, updates ended_at/duration/received_at so a live in-progress
+    session grows instead of creating duplicate rows.
+    """
+    conn.execute(
+        """
+        INSERT INTO sessions
+            (user_id, app, category, started_at, ended_at, duration, received_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(user_id, app, started_at) DO UPDATE SET
+            ended_at    = excluded.ended_at,
+            duration    = excluded.duration,
+            received_at = excluded.received_at
+        """,
+        (
+            session.user_id,
+            session.app,
+            session.category,
+            session.started_at.isoformat(),
+            session.ended_at.isoformat(),
+            session.duration,
+            session.received_at.isoformat(),
+        ),
+    )
+    conn.commit()
+
+
 def fetch_sessions_for_user(
     conn: sqlite3.Connection, user_id: str
 ) -> list[StoredSession]:
     """Return all sessions for a user ordered by start time."""
     rows = conn.execute(
         "SELECT * FROM sessions WHERE user_id = ? ORDER BY started_at",
+        (user_id,),
+    ).fetchall()
+    return [_row_to_session(r) for r in rows]
+
+
+def fetch_productive_sessions(
+    conn: sqlite3.Connection, user_id: str
+) -> list[StoredSession]:
+    """Return all productive sessions for a user ordered by start time."""
+    rows = conn.execute(
+        "SELECT * FROM sessions WHERE user_id = ? AND category = 'productive' ORDER BY started_at",
         (user_id,),
     ).fetchall()
     return [_row_to_session(r) for r in rows]

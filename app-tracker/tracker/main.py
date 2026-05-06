@@ -11,7 +11,7 @@ from tracker.storage.db import get_connection, get_db_path
 from tracker.storage.identity import get_or_create_user_id
 from tracker.storage.repository import Session, insert_session
 from tracker.report.reporter import report_apps, report_days, report_today
-from tracker.sender import SEND_INTERVAL, get_server_url, send_report
+from tracker.sender import get_server_url, send_report
 
 app = typer.Typer(help="App productivity tracker")
 err = Console(stderr=True)
@@ -70,12 +70,11 @@ def start() -> None:
     user_id = get_or_create_user_id()
     server_url = get_server_url()
     last_sent_at: datetime = datetime.now()
-    last_send_tick: float = time.monotonic()
 
     if server_url:
         err.print(
             f"[green]Tracker started[/green] — user ID: [cyan]{user_id}[/cyan]"
-            f" — syncing to [cyan]{server_url}[/cyan] every {SEND_INTERVAL // 60} min"
+            f" — live sync to [cyan]{server_url}[/cyan] every {POLL_INTERVAL}s"
             " — press Ctrl-C to stop"
         )
     else:
@@ -98,16 +97,19 @@ def start() -> None:
             current_app = active
             session_start = now
 
-        if server_url and (time.monotonic() - last_send_tick) >= SEND_INTERVAL:
-            result, last_sent_at = send_report(conn, user_id, last_sent_at, server_url)
-            last_send_tick = time.monotonic()
+        if server_url and current_app:
+            live = Session(
+                app=current_app,
+                category=classifier.classify(current_app),
+                started_at=session_start,
+                ended_at=now,
+                duration=max(1, int((now - session_start).total_seconds())),
+            )
+            result, last_sent_at = send_report(
+                conn, user_id, last_sent_at, server_url, current_session=live
+            )
             if result.error:
                 err.print(f"[yellow]Sync error:[/yellow] {result.error}")
-            else:
-                err.print(
-                    f"[dim]Sync — accepted: {result.accepted}"
-                    f"  rejected: {result.rejected}[/dim]"
-                )
 
         time.sleep(POLL_INTERVAL)
 

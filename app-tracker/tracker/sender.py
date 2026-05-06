@@ -8,8 +8,6 @@ from sqlite3 import Connection
 
 from tracker.storage.repository import Session, fetch_sessions_since
 
-SEND_INTERVAL = 300  # seconds — envoyé toutes les 5 minutes
-
 
 @dataclass
 class SendResult:
@@ -28,13 +26,16 @@ def send_report(
     user_id: str,
     since: datetime,
     server_url: str,
+    current_session: Session | None = None,
 ) -> tuple[SendResult, datetime]:
     """
-    Fetch sessions stored since `since`, POST them to the server.
-    Returns (result, new_cursor) — cursor advances only on success so
-    failed sessions are retried on the next tick.
+    Fetch completed sessions since `since` and POST them along with the current
+    in-progress session (if any). Returns (result, new_cursor). Cursor advances
+    on success; on failure it is unchanged so the same sessions are retried.
     """
     sessions = fetch_sessions_since(conn, since)
+    if current_session is not None:
+        sessions = sessions + [current_session]
     if not sessions:
         return SendResult(accepted=0, rejected=0), since
 

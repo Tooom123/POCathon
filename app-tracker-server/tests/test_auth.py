@@ -117,7 +117,6 @@ def test_require_linked_token_no_header(client):
 
 def test_bearer_token_accepted_on_protected_route(client):
     """The require_linked_token dependency resolves correctly for a valid token."""
-    from server.api.auth import require_linked_token
     from server.storage.token_repository import get_token
 
     token = client.post("/auth/token").json()["token"]
@@ -125,6 +124,127 @@ def test_bearer_token_accepted_on_protected_route(client):
 
     db = app.state.db
     record = get_token(db, token)
-    # Validate the dependency logic directly
     from server.auth.service import token_is_usable
     assert token_is_usable(record) is True
+
+
+# ── POST /auth/refresh ────────────────────────────────────────────────────────
+
+def _linked_token(client) -> str:
+    """Helper: create and link a token, return the token string."""
+    token = client.post("/auth/token").json()["token"]
+    client.post("/auth/link", json={"user_id": USER_ID, "token": token})
+    return token
+
+
+def test_refresh_extends_expiry(client):
+    token = _linked_token(client)
+    before = client.get(f"/auth/token/{token}/status").json()["expires_at"]
+
+    resp = client.post("/auth/refresh", headers={"Authorization": f"Bearer {token}"})
+    assert resp.status_code == 200
+    after = resp.json()["expires_at"]
+
+    assert after >= before  # expiry moved forward (or equal within same second)
+    assert resp.json()["status"] == "linked"
+    assert resp.json()["user_id"] == USER_ID
+
+
+def test_refresh_returns_7day_ttl(client):
+    token = _linked_token(client)
+    resp = client.post("/auth/refresh", headers={"Authorization": f"Bearer {token}"})
+    assert resp.json()["expires_in_seconds"] == 7 * 86400
+
+
+def test_refresh_without_bearer_returns_401(client):
+    resp = client.post("/auth/refresh")
+    assert resp.status_code == 401
+
+
+def test_refresh_with_pending_token_returns_403(client):
+    token = client.post("/auth/token").json()["token"]
+    resp = client.post("/auth/refresh", headers={"Authorization": f"Bearer {token}"})
+    assert resp.status_code == 403
+
+
+def test_refresh_with_expired_token_returns_403(client, db):
+    past = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(seconds=1)
+    create_token(db, "EXPTOKEN", expires_at=past)
+    # Manually set to linked so it passes status check but not expiry
+    db.execute("UPDATE auth_tokens SET status='linked', user_id=? WHERE token='EXPTOKEN'", (USER_ID,))
+    db.commit()
+    resp = client.post("/auth/refresh", headers={"Authorization": "Bearer EXPTOKEN"})
+    assert resp.status_code == 403
+
+
+def test_refresh_token_string_unchanged(client):
+    """The token string must not change — only expires_at moves forward."""
+    token = _linked_token(client)
+    resp = client.post("/auth/refresh", headers={"Authorization": f"Bearer {token}"})
+    assert resp.json()["token"] == token
+
+
+def test_refresh_response_shape(client):
+    """Response must contain all fields the frontend relies on."""
+    token = _linked_token(client)
+    body = client.post("/auth/refresh", headers={"Authorization": f"Bearer {token}"}).json()
+    assert set(body.keys()) >= {"token", "status", "user_id", "expires_at", "expires_in_seconds"}
+
+
+def test_refresh_persists_new_expiry_in_db(client):
+    """The extended expiry must be visible via the status endpoint after refresh."""
+    token = _linked_token(client)
+    before = client.get(f"/auth/token/{token}/status").json()["expires_at"]
+
+    client.post("/auth/refresh", headers={"Authorization": f"Bearer {token}"})
+
+    after = client.get(f"/auth/token/{token}/status").json()["expires_at"]
+    assert after >= before
+
+
+def test_refresh_successive_calls_keep_extending(client):
+    """Each successive refresh must move expiry forward, not cap it."""
+    token = _linked_token(client)
+
+    first = client.post("/auth/refresh", headers={"Authorization": f"Bearer {token}"}).json()["expires_at"]
+    second = client.post("/auth/refresh", headers={"Authorization": f"Bearer {token}"}).json()["expires_at"]
+
+    assert second >= first
+
+
+def test_refresh_token_remains_usable_afterwards(client, db):
+    """A refreshed token must still pass require_linked_token (token_is_usable returns True)."""
+    from server.storage.token_repository import get_token
+    from server.auth.service import token_is_usable
+
+    token = _linked_token(client)
+    client.post("/auth/refresh", headers={"Authorization": f"Bearer {token}"})
+
+    record = get_token(db, token)
+    assert token_is_usable(record) is True
+
+
+def test_refresh_near_expiry_token_succeeds(client, db):
+    """Proactive refresh: a token with < 24h remaining must be refreshable."""
+    token = _linked_token(client)
+    near_expiry = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(hours=1)
+    db.execute("UPDATE auth_tokens SET expires_at = ? WHERE token = ?", (near_expiry.isoformat(), token))
+    db.commit()
+
+    resp = client.post("/auth/refresh", headers={"Authorization": f"Bearer {token}"})
+    assert resp.status_code == 200
+    new_expiry = datetime.fromisoformat(resp.json()["expires_at"])
+    assert new_expiry > near_expiry
+
+
+def test_refresh_malformed_bearer_returns_401(client):
+    """'Bearer' prefix missing — must return 401, not 403 or 500."""
+    token = _linked_token(client)
+    resp = client.post("/auth/refresh", headers={"Authorization": token})
+    assert resp.status_code == 401
+
+
+def test_refresh_unknown_token_returns_403(client):
+    """An entirely unknown token string must return 403."""
+    resp = client.post("/auth/refresh", headers={"Authorization": "Bearer XXXXXXXX"})
+    assert resp.status_code == 403
