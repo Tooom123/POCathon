@@ -36,7 +36,7 @@ export default function HUD() {
     if (!audio) return;
     if (me?.isFocusing && !muted) {
       audio.play().catch(() => {});
-      fadeTo(audio, 0.5, 2000);
+      fadeTo(audio, 0.75, 2000);
     } else {
       fadeTo(audio, 0, 1500, () => audio.pause());
     }
@@ -51,7 +51,7 @@ export default function HUD() {
       fadeTo(audio, 0, 800, () => audio.pause());
     } else if (me?.isFocusing) {
       audio.play().catch(() => {});
-      fadeTo(audio, 0.5, 800);
+      fadeTo(audio, 0.75, 800);
     }
   }
 
