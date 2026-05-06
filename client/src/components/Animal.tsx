@@ -130,44 +130,73 @@ export default function Animal({ animalId, slot, total, isFocusing, walkRadius, 
 
   useFrame((_, delta) => { mixer.update(delta); });
 
+  // Track last orbit angle reached during focus, so that when focus stops
+  // the animal continues from there instead of snapping back to baseAngle.
+  const lastFocusAngle = useRef<number>(baseAngle);
+  // Idle anchor: where the animal "lives" when not focusing.
+  // Initialized to baseAngle, updated to lastFocusAngle when focus stops so
+  // the animal stays where it was at the moment of stopping.
+  const idleAngle = useRef<number>(baseAngle);
+  const wasFocusing = useRef<boolean>(false);
+
   useFrame(({ clock }) => {
     if (!groupRef.current) return;
     const t = clock.getElapsedTime();
+    const g = groupRef.current;
 
     if (!isFocusing) {
-      // Reset focus start so next session begins from this exact spot
+      // Detect focus → idle transition: snapshot current angle as new idle anchor
+      if (wasFocusing.current) {
+        idleAngle.current = lastFocusAngle.current;
+        wasFocusing.current = false;
+      }
       focusStartT.current = null;
-      // Idle: fixed position around island, facing center, tiny breathe
-      const bx = Math.cos(baseAngle) * orbitRadius;
-      const bz = Math.sin(baseAngle) * orbitRadius;
-      groupRef.current.position.set(
-        bx,
-        GROUND_Y + Math.sin(t * 0.9 + slot) * 0.007,
-        bz,
-      );
-      // Face island center
-      groupRef.current.rotation.y = Math.atan2(-bx, -bz);
+
+      // Idle target position based on idleAngle (was baseAngle before)
+      const a = idleAngle.current;
+      const bx = Math.cos(a) * orbitRadius;
+      const bz = Math.sin(a) * orbitRadius;
+      const targetY = GROUND_Y + Math.sin(t * 0.9 + slot) * 0.007;
+
+      // Smooth lerp toward idle anchor (no teleport on focus stop)
+      g.position.x += (bx - g.position.x) * 0.08;
+      g.position.z += (bz - g.position.z) * 0.08;
+      g.position.y += (targetY - g.position.y) * 0.15;
+
+      // Idle orientation: face island center. Smoothly rotate toward it.
+      const targetRot = Math.atan2(-bx, -bz);
+      const dr = ((targetRot - g.rotation.y + Math.PI) % (Math.PI * 2)) - Math.PI;
+      g.rotation.y += dr * 0.1;
       return;
     }
 
-    // First frame of focus: anchor so orbit starts smoothly from idle position
+    // Idle → focus transition: anchor from current idle angle
+    if (!wasFocusing.current) {
+      focusStartT.current = t;
+      // Start the orbit progression from wherever we currently are
+      lastFocusAngle.current = idleAngle.current;
+      wasFocusing.current = true;
+    }
+
     if (focusStartT.current === null) focusStartT.current = t;
     const dt = t - focusStartT.current;
-    // Focus: slow orbit around island (AFK patrol)
-    const angle = baseAngle + dt * orbitSpeed;
+    // Continue orbit from idle angle (smooth, no jump)
+    const angle = idleAngle.current + dt * orbitSpeed;
+    lastFocusAngle.current = angle;
+
     const x = Math.cos(angle) * orbitRadius;
     const z = Math.sin(angle) * orbitRadius;
-
     const y = isFlying
       ? GROUND_Y + FLYING_Y_OFFSET + Math.sin(t * 1.1 + slot) * 0.1
       : GROUND_Y;
 
-    groupRef.current.position.set(x, y, z);
+    g.position.set(x, y, z);
 
-    // Tangent direction: velocity of CCW circle = (-sin(angle), 0, cos(angle))
-    // Model +Z = front. After rotY, +Z → (sin(rotY), 0, cos(rotY)).
-    // Want sin(rotY)=−sin(angle), cos(rotY)=cos(angle) → rotY = −angle
-    groupRef.current.rotation.y = -angle;
+    // Smoothly rotate toward tangent direction (rotY = -angle).
+    // Don't snap on first frame so the body turns naturally.
+    const targetRot = -angle;
+    const dr = ((targetRot - g.rotation.y + Math.PI) % (Math.PI * 2)) - Math.PI;
+    g.rotation.y += dr * 0.12;
   });
 
   return (

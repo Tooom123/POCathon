@@ -3,6 +3,7 @@ import { useGLTF, Html } from '@react-three/drei';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import Animal from './Animal';
+import AutumnLeaves from './AutumnLeaves';
 import { PlayerState, useGameStore } from '../stores/gameStore';
 import { SHOP_ANIMALS, getIslandLevel } from '../animals';
 import { getLayout, BlockDef, DecorDef } from '../islandLayout';
@@ -105,6 +106,8 @@ export default function Island({ player, position, isOwn, onClick }: IslandProps
       <group scale={ISLAND_SCALE}>
         <IslandBlocks level={displayLevel} />
         <IslandDecor level={displayLevel} />
+
+        <AutumnLeaves active={isFocusing} radius={layout.walkRadius} />
 
         {animalsToShow.map((animalId, i) => {
           const animalData = SHOP_ANIMALS.find(a => a.id === animalId);
