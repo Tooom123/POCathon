@@ -1,204 +1,218 @@
 // Island procedural layout system
-// Blocks: 1.082×1.000×1.082 (standard), 2.082×1.000×2.082 (large), 1.082×0.500×1.082 (low)
+// All block dimensions measured from GLB bounding boxes:
+//   block-grass:        1.082 × 1.000 × 1.082
+//   block-grass-large:  2.082 × 1.000 × 2.082
+//   block-grass-low:    1.082 × 0.500 × 1.082
+//   block-grass-corner: 1.054 × 1.000 × 1.054
+//   block-grass-corner-low: 1.054 × 0.500 × 1.054
 
-export const B = 1.082;  // standard block width
-export const BL = 2.082; // large block width
-export const SURFACE_Y = 1.0; // top of standard block
+export const B  = 1.082;  // standard block width
+export const BL = 2.082;  // large block width
+
+// Y positions of top surfaces
+export const SURFACE_Y     = 1.0;  // top of standard block (y=0 base)
+export const SURFACE_Y_LOW = 0.5;  // top of low block
 
 export type BlockType =
   | 'block-grass'
   | 'block-grass-large'
   | 'block-grass-low'
-  | 'block-grass-edge'
   | 'block-grass-corner'
   | 'block-grass-corner-low';
 
 export interface BlockDef {
   model: BlockType;
   x: number;
-  y: number; // base y (0 = ground level)
+  y: number;
   z: number;
-  rotY: number; // rotation around Y in radians
+  rotY: number;
+}
+
+// Decor placement: anchored to a specific block's surface
+export interface DecorDef {
+  model: 'tree-pine' | 'flowers-tall' | 'mushrooms' | 'plant';
+  x: number;
+  z: number;
+  surfaceY: number; // y of the block surface it sits on
+  scale: number;
+  rotY: number;
 }
 
 export interface IslandLayout {
   blocks: BlockDef[];
-  // Animal placement zones: positions on the surface where animals can walk
-  walkRadius: number; // radius of the main walking circle
-  surfaceY: number;   // Y position of the surface for animals
-}
-
-// Helper to add a standard block
-function gb(x: number, z: number, rotY = 0): BlockDef {
-  return { model: 'block-grass', x, y: 0, z, rotY };
-}
-function gbl(x: number, z: number, rotY = 0): BlockDef {
-  return { model: 'block-grass-large', x, y: 0, z, rotY };
-}
-function gbc(x: number, z: number, rotY = 0): BlockDef {
-  return { model: 'block-grass-corner', x, y: 0, z, rotY };
-}
-function gblo(x: number, z: number, rotY = 0): BlockDef {
-  return { model: 'block-grass-low', x, y: 0, z, rotY };
-}
-function gbclo(x: number, z: number, rotY = 0): BlockDef {
-  return { model: 'block-grass-corner-low', x, y: 0, z, rotY };
+  decors: DecorDef[];
+  walkRadius: number;
 }
 
 const H = Math.PI / 2;
 
-/**
- * Level 1 — Small diamond: 1 large center + 4 low edge tips
- *   Shape:
- *        [low]
- *   [low][LARGE][low]
- *        [low]
- */
+// ── Block helpers ────────────────────────────────────────────────────────────
+const gb    = (x: number, z: number, r = 0): BlockDef => ({ model: 'block-grass',        x, y: 0, z, rotY: r });
+const gbl   = (x: number, z: number, r = 0): BlockDef => ({ model: 'block-grass-large',  x, y: 0, z, rotY: r });
+const gblo  = (x: number, z: number, r = 0): BlockDef => ({ model: 'block-grass-low',    x, y: 0, z, rotY: r });
+const gbclo = (x: number, z: number, r = 0): BlockDef => ({ model: 'block-grass-corner-low', x, y: 0, z, rotY: r });
+
+// ── Decor helpers ────────────────────────────────────────────────────────────
+const tree   = (x: number, z: number, sy: number, sc = 0.65, r = 0): DecorDef => ({ model: 'tree-pine',    x, z, surfaceY: sy, scale: sc, rotY: r });
+const flower = (x: number, z: number, sy: number, sc = 0.55, r = 0): DecorDef => ({ model: 'flowers-tall', x, z, surfaceY: sy, scale: sc, rotY: r });
+const mush   = (x: number, z: number, sy: number, sc = 0.5,  r = 0): DecorDef => ({ model: 'mushrooms',    x, z, surfaceY: sy, scale: sc, rotY: r });
+const plant  = (x: number, z: number, sy: number, sc = 0.55, r = 0): DecorDef => ({ model: 'plant',        x, z, surfaceY: sy, scale: sc, rotY: r });
+
+// ── Level 1 — Compact cluster: large block + 3 standard + 2 low shelves ─────
+// Asymmetric: main mass bottom-left, lower shelf extending right
+//
+//   [low]
+//   [std] [LARGE]
+//         [std]  [low]
+//
 function level1(): IslandLayout {
-  const c = BL / 2; // center of large block = 1.041
-  const arm = c + B * 0.6; // arm distance from center
+  const lx = -BL / 2 - B * 0.5; // left standard block center
+  const rx =  BL / 2 + B * 0.5; // right low block center
+  const bot =  BL / 2 + B * 0.5;
+  const top = -BL / 2 - B * 0.5;
   return {
     blocks: [
       gbl(0, 0),
-      gblo(0, -arm),
-      gblo(0,  arm),
-      gblo(-arm, 0),
-      gblo( arm, 0),
+      gb(lx, 0),
+      gblo(lx, top),
+      gb(0,  bot),
+      gblo(rx, bot),
     ],
-    walkRadius: BL * 0.38,
-    surfaceY: SURFACE_Y,
+    decors: [
+      tree(lx, top - B * 0.1, SURFACE_Y_LOW, 0.6, 0.3),
+      flower(rx - B * 0.2, bot, SURFACE_Y_LOW, 0.5, 0),
+    ],
+    walkRadius: BL * 0.35,
   };
 }
 
-/**
- * Level 2 — Cross island: large center + 4 full arms with corner details
- *   Adds full-height blocks extending the cross further
- */
+// ── Level 2 — L-shape cluster with low steps ─────────────────────────────────
+//
+//   [low] [std]
+//         [LARGE] [std]
+//         [std]
+//         [low]
+//
 function level2(): IslandLayout {
-  const arm1 = BL / 2 + B * 0.5;
-  const arm2 = BL / 2 + B * 1.5;
+  const right = BL / 2 + B * 0.5;
+  const top1  = -(BL / 2 + B * 0.5);
+  const bot1  =   BL / 2 + B * 0.5;
+  const bot2  =   BL / 2 + B * 1.5;
+  const left  = -(BL / 2 + B * 0.5);
   return {
     blocks: [
       gbl(0, 0),
-      // Cross arms (level 1 standard blocks)
-      gb(0, -arm1), gb(0, arm1),
-      gb(-arm1, 0), gb(arm1, 0),
-      // Low tips
-      gblo(0, -arm2),
-      gblo(0,  arm2),
-      gblo(-arm2, 0),
-      gblo( arm2, 0),
-      // Low corners at the diagonal
-      gbclo(-arm1 * 0.7, -arm1 * 0.7),
-      gbclo( arm1 * 0.7, -arm1 * 0.7, H * 3),
-      gbclo(-arm1 * 0.7,  arm1 * 0.7, H),
-      gbclo( arm1 * 0.7,  arm1 * 0.7, H * 2),
+      gb(right, 0),
+      gb(0, bot1),
+      gblo(0, bot2),
+      gb(0, top1),
+      gblo(left, top1),
+      gbclo(right, top1, H * 3),
     ],
-    walkRadius: BL * 0.55,
-    surfaceY: SURFACE_Y,
+    decors: [
+      tree(left + B * 0.1, top1, SURFACE_Y_LOW, 0.65, -0.4),
+      flower(right, top1 + B * 0.2, SURFACE_Y_LOW, 0.5, 0),
+      mush(0, bot2 - B * 0.1, SURFACE_Y_LOW, 0.5, 1.0),
+    ],
+    walkRadius: BL * 0.5,
   };
 }
 
-/**
- * Level 3 — Expanded cross with filled corners
- */
+// ── Level 3 — T-shape with offset wings ──────────────────────────────────────
 function level3(): IslandLayout {
-  const { blocks } = level2();
-  const diag = BL / 2 + B * 0.5;
+  const { blocks: b2, decors: d2 } = level2();
+  const right = BL / 2 + B * 0.5;
+  const left  = -(BL / 2 + B * 0.5);
+  const top1  = -(BL / 2 + B * 0.5);
+  const bot1  =   BL / 2 + B * 0.5;
   return {
     blocks: [
-      ...blocks.filter(b => b.model !== 'block-grass-corner-low'),
-      // Replace corner-lows with full corners
-      gbc(-diag, -diag),
-      gbc( diag, -diag, H * 3),
-      gbc(-diag,  diag, H),
-      gbc( diag,  diag, H * 2),
-      // Extra low perimeter shelf
-      gblo(-diag, 0),
-      gblo( diag, 0),
-      gblo(0, -diag),
-      gblo(0,  diag),
+      ...b2,
+      gb(left, 0),
+      gblo(left, bot1),
+      gbclo(left, top1, H),
+      gblo(right, bot1),
+    ],
+    decors: [
+      ...d2,
+      tree(right + B * 0.1, 0, SURFACE_Y, 0.7, 0.8),
+      plant(left, bot1, SURFACE_Y_LOW, 0.55, 0),
     ],
     walkRadius: BL * 0.65,
-    surfaceY: SURFACE_Y,
   };
 }
 
-/**
- * Level 4 — Hexagonal silhouette with plateau and outer shelf
- */
+// ── Level 4 — Broad plateau with asymmetric shelves ───────────────────────────
 function level4(): IslandLayout {
-  const inner = level3();
-  const outerArm = BL / 2 + B * 2.5;
-  const mid = BL / 2 + B * 1.5;
+  const { blocks: b3, decors: d3 } = level3();
+  const far    =  BL / 2 + B * 2.5;
+  const farNeg = -(BL / 2 + B * 2.5);
+  const right  =  BL / 2 + B * 0.5;
+  const left   = -(BL / 2 + B * 0.5);
+  const bot2   =   BL / 2 + B * 1.5;
   return {
     blocks: [
-      ...inner.blocks,
-      // Outer arm tips
-      gblo(0, -outerArm),
-      gblo(0,  outerArm),
-      gblo(-outerArm, 0),
-      gblo( outerArm, 0),
-      // Mid-ring (fills gaps around cross)
-      gb(-mid, -mid * 0.5),
-      gb( mid, -mid * 0.5),
-      gb(-mid,  mid * 0.5),
-      gb( mid,  mid * 0.5),
-      gb(-mid * 0.5, -mid),
-      gb( mid * 0.5, -mid),
-      gb(-mid * 0.5,  mid),
-      gb( mid * 0.5,  mid),
+      ...b3,
+      gblo(0, farNeg),
+      gblo(far, 0),
+      gb(right, farNeg + B),
+      gblo(left, bot2 + B * 0.5),
+    ],
+    decors: [
+      ...d3,
+      tree(right + B * 0.1, farNeg + B * 0.4, SURFACE_Y, 0.7, -0.2),
+      flower(far - B * 0.3, 0, SURFACE_Y_LOW, 0.5, 0.5),
     ],
     walkRadius: BL * 0.8,
-    surfaceY: SURFACE_Y,
   };
 }
 
-/**
- * Level 5 — Star island: filled center + 8 arms radiating
- */
+// ── Level 5 — Wide organic blob ───────────────────────────────────────────────
 function level5(): IslandLayout {
-  const { blocks } = level4();
-  const r = BL / 2 + B * 3.0;
-  const diag = r * 0.707;
+  const { blocks: b4, decors: d4 } = level4();
+  const farL = -(BL / 2 + B * 2.5);
+  const bot3 =   BL / 2 + B * 2.5;
+  const right = BL / 2 + B * 0.5;
   return {
     blocks: [
-      ...blocks,
-      gblo(-diag, -diag),
-      gblo( diag, -diag),
-      gblo(-diag,  diag),
-      gblo( diag,  diag),
-      gb(0, -r),
-      gb(0,  r),
-      gb(-r, 0),
-      gb( r, 0),
+      ...b4,
+      gblo(farL, 0),
+      gb(farL, -(BL / 2 + B * 0.5)),
+      gblo(0, bot3),
+      gbclo(right, bot3 - B * 0.5, H * 2),
+    ],
+    decors: [
+      ...d4,
+      tree(farL, -(BL / 2 + B * 0.5) + B * 0.1, SURFACE_Y, 0.75, 1.2),
+      mush(0, bot3 - B * 0.2, SURFACE_Y_LOW, 0.55, 0),
     ],
     walkRadius: BL * 0.95,
-    surfaceY: SURFACE_Y,
   };
 }
 
-/**
- * Level 6 — Grand island: everything from level 5 + large outer ring segments
- */
+// ── Level 6 — Grand sprawling island ─────────────────────────────────────────
 function level6(): IslandLayout {
-  const { blocks } = level5();
-  const outer = BL / 2 + B * 4.0;
-  const half = outer * 0.707;
+  const { blocks: b5, decors: d5 } = level5();
+  const farR =  BL / 2 + B * 3.5;
+  const farL = -(BL / 2 + B * 3.5);
+  const bot4 =   BL / 2 + B * 3.5;
+  const top3 = -(BL / 2 + B * 3.0);
   return {
     blocks: [
-      ...blocks,
-      gbl(-outer, 0),
-      gbl( outer, 0),
-      gbl(0, -outer),
-      gbl(0,  outer),
-      gblo(-half, -half),
-      gblo( half, -half),
-      gblo(-half,  half),
-      gblo( half,  half),
+      ...b5,
+      gbl(farR, 0),
+      gblo(farL, BL / 2 + B),
+      gblo(0, bot4),
+      gb(farR * 0.6, top3),
+      gbclo(farR, top3 + B * 0.5, H * 3),
     ],
-    walkRadius: BL * 1.1,
-    surfaceY: SURFACE_Y,
+    decors: [
+      ...d5,
+      tree(farR + B * 0.1, B * 0.2, SURFACE_Y, 0.8, -0.6),
+      flower(0, bot4 - B * 0.2, SURFACE_Y_LOW, 0.55, 0),
+      plant(farR * 0.6 - B * 0.2, top3, SURFACE_Y, 0.6, 0.3),
+    ],
+    walkRadius: BL * 1.15,
   };
 }
 
@@ -212,6 +226,5 @@ export const ISLAND_LAYOUTS: Record<number, () => IslandLayout> = {
 };
 
 export function getLayout(level: number): IslandLayout {
-  const fn = ISLAND_LAYOUTS[Math.min(Math.max(level, 1), 6)];
-  return fn();
+  return ISLAND_LAYOUTS[Math.min(Math.max(level, 1), 6)]();
 }

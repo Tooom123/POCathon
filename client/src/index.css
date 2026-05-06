@@ -499,6 +499,10 @@ body {
   border: 1px solid rgba(255,255,255,0.08);
 }
 .island-label--own { color: #ffdd55; }
+.island-label--focusing {
+  border-color: rgba(170,220,255,0.25);
+  box-shadow: 0 0 8px rgba(100,180,255,0.15);
+}
 
 /* ─── RESET BUTTON ─── */
 .reset-btn {

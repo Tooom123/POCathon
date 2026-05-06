@@ -5,16 +5,14 @@ import * as THREE from 'three';
 import Animal from './Animal';
 import { PlayerState, useGameStore } from '../stores/gameStore';
 import { getIslandLevel } from '../animals';
-import { getLayout, BlockDef } from '../islandLayout';
+import { getLayout, BlockDef, DecorDef } from '../islandLayout';
 
 export const ISLAND_SURFACE_Y = 1.05;
 
-// Preload all block models
 const BLOCK_MODELS = [
   'block-grass',
   'block-grass-large',
   'block-grass-low',
-  'block-grass-edge',
   'block-grass-corner',
   'block-grass-corner-low',
 ];
@@ -22,11 +20,18 @@ const BLOCK_MODELS = [
 function BlockInstance({ def }: { def: BlockDef }) {
   const { scene } = useGLTF(`/models/blocks/${def.model}.glb`);
   const clone = useMemo(() => scene.clone(true), [scene]);
+  return <primitive object={clone} position={[def.x, def.y, def.z]} rotation={[0, def.rotY, 0]} />;
+}
+
+function DecorInstance({ def }: { def: DecorDef }) {
+  const { scene } = useGLTF(`/models/blocks/${def.model}.glb`);
+  const clone = useMemo(() => scene.clone(true), [scene]);
   return (
     <primitive
       object={clone}
-      position={[def.x, def.y, def.z]}
+      position={[def.x, def.surfaceY, def.z]}
       rotation={[0, def.rotY, 0]}
+      scale={def.scale}
     />
   );
 }
@@ -35,30 +40,84 @@ function IslandBlocks({ level }: { level: number }) {
   const layout = useMemo(() => getLayout(level), [level]);
   return (
     <group>
-      {layout.blocks.map((def, i) => (
-        <BlockInstance key={i} def={def} />
-      ))}
+      {layout.blocks.map((def, i) => <BlockInstance key={i} def={def} />)}
     </group>
   );
 }
 
-function IslandDecor({ level, animalCount }: { level: number; animalCount: number }) {
-  const { scene: treeScene }   = useGLTF('/models/blocks/tree-pine.glb');
-  const { scene: flowerScene } = useGLTF('/models/blocks/flowers-tall.glb');
-  const { scene: mushScene }   = useGLTF('/models/blocks/mushrooms.glb');
-  const { scene: plantScene }  = useGLTF('/models/blocks/plant.glb');
+function IslandDecor({ level }: { level: number }) {
+  const layout = useMemo(() => getLayout(level), [level]);
+  return (
+    <group>
+      {layout.decors.map((def, i) => <DecorInstance key={i} def={def} />)}
+    </group>
+  );
+}
 
-  const r = 0.8 + level * 0.3;
+// Discrete particle ribbon rising behind the island
+function IslandParticles({ isFocusing }: { isFocusing: boolean }) {
+  const count = 18;
+  const positions = useRef<Float32Array>(new Float32Array(count * 3));
+  const velocities = useRef<Float32Array>(new Float32Array(count * 3));
+  const lifetimes = useRef<Float32Array>(new Float32Array(count));
+  const maxLifes = useRef<Float32Array>(new Float32Array(count));
+  const geoRef = useRef<THREE.BufferGeometry>(null);
+  const matRef = useRef<THREE.PointsMaterial>(null);
+
+  // Initialize particles spread behind the island (z = -3..0)
+  useMemo(() => {
+    for (let i = 0; i < count; i++) {
+      lifetimes.current[i] = Math.random() * 3; // stagger start
+      maxLifes.current[i] = 2.5 + Math.random() * 2;
+      positions.current[i * 3 + 0] = (Math.random() - 0.5) * 3.5;
+      positions.current[i * 3 + 1] = Math.random() * 2;
+      positions.current[i * 3 + 2] = -1.5 - Math.random() * 2;
+      velocities.current[i * 3 + 0] = (Math.random() - 0.5) * 0.15;
+      velocities.current[i * 3 + 1] = 0.25 + Math.random() * 0.3;
+      velocities.current[i * 3 + 2] = 0;
+    }
+  }, []);
+
+  useFrame((_, delta) => {
+    if (!geoRef.current || !matRef.current) return;
+    for (let i = 0; i < count; i++) {
+      lifetimes.current[i] += delta;
+      if (lifetimes.current[i] > maxLifes.current[i]) {
+        // Respawn at base
+        lifetimes.current[i] = 0;
+        positions.current[i * 3 + 0] = (Math.random() - 0.5) * 3.5;
+        positions.current[i * 3 + 1] = 0.5;
+        positions.current[i * 3 + 2] = -1.5 - Math.random() * 2;
+        velocities.current[i * 3 + 0] = (Math.random() - 0.5) * 0.15;
+        velocities.current[i * 3 + 1] = 0.2 + Math.random() * 0.25;
+      }
+      positions.current[i * 3 + 0] += velocities.current[i * 3 + 0] * delta;
+      positions.current[i * 3 + 1] += velocities.current[i * 3 + 1] * delta;
+    }
+    geoRef.current.attributes.position.needsUpdate = true;
+    // Fade opacity based on focus
+    const targetOpacity = isFocusing ? 0.45 : 0.15;
+    matRef.current.opacity += (targetOpacity - matRef.current.opacity) * 0.05;
+  });
 
   return (
-    <group position={[0, ISLAND_SURFACE_Y, 0]}>
-      {animalCount >= 2  && <primitive object={flowerScene.clone(true)} position={[ r * 0.6, 0, -r * 0.7]} scale={0.6} />}
-      {animalCount >= 3  && <primitive object={treeScene.clone(true)}   position={[-r, 0, -r]}               scale={0.7} />}
-      {animalCount >= 4  && <primitive object={mushScene.clone(true)}   position={[-r * 0.5, 0, r]}          scale={0.6} />}
-      {animalCount >= 6  && <primitive object={treeScene.clone(true)}   position={[ r, 0, r * 0.7]}          scale={0.6} />}
-      {animalCount >= 8  && <primitive object={plantScene.clone(true)}  position={[ 0, 0, -r * 0.9]}         scale={0.6} />}
-      {animalCount >= 10 && <primitive object={flowerScene.clone(true)} position={[-r * 0.8, 0, -r * 0.4]}  scale={0.5} />}
-    </group>
+    <points>
+      <bufferGeometry ref={geoRef}>
+        <bufferAttribute
+          attach="attributes-position"
+          args={[positions.current, 3]}
+        />
+      </bufferGeometry>
+      <pointsMaterial
+        ref={matRef}
+        size={0.06}
+        color="#88ccff"
+        transparent
+        opacity={0.15}
+        depthWrite={false}
+        sizeAttenuation
+      />
+    </points>
   );
 }
 
@@ -73,12 +132,11 @@ export default function Island({ player, position, isOwn, onClick }: IslandProps
   const groupRef = useRef<THREE.Group>(null);
   const { ownedAnimals, islandLevel } = useGameStore();
   const { isFocusing, name, islandIndex } = player;
-
   const { shopOpen } = useGameStore();
+
   const displayLevel = isOwn ? islandLevel : 1;
   const islandInfo = getIslandLevel(displayLevel);
   const { capacity } = islandInfo;
-
   const layout = useMemo(() => getLayout(displayLevel), [displayLevel]);
 
   const FALLBACK = ['bunny','cat','dog','chick','penguin','fox','panda','koala'];
@@ -88,30 +146,23 @@ export default function Island({ player, position, isOwn, onClick }: IslandProps
         FALLBACK[(islandIndex * 3 + i) % FALLBACK.length]
       );
 
-  // Gentle floating animation
   useFrame(({ clock }) => {
     if (!groupRef.current) return;
     const t = clock.getElapsedTime();
     groupRef.current.position.y = position[1] + Math.sin(t * 0.4 + islandIndex * 1.3) * 0.1;
   });
 
-  const pointColor     = isFocusing ? '#ffdd66' : '#6688cc';
-  const pointIntensity = isFocusing ? 4.5 : 0.9;
+  const pointColor     = isFocusing ? '#aaddff' : '#6688cc';
+  const pointIntensity = isFocusing ? 3.0 : 0.9;
   const islandSize     = 3 + displayLevel * 2;
 
   return (
     <group ref={groupRef} position={position}>
       <pointLight position={[0, 3, 0]} color={pointColor} intensity={pointIntensity} distance={islandSize + 8} />
 
-      {isFocusing && (
-        <mesh position={[0, ISLAND_SURFACE_Y + 2.5, 0]}>
-          <sphereGeometry args={[0.22, 8, 8]} />
-          <meshBasicMaterial color="#ffee88" transparent opacity={0.9} />
-        </mesh>
-      )}
-
       <IslandBlocks level={displayLevel} />
-      <IslandDecor level={displayLevel} animalCount={animalsToShow.length} />
+      <IslandDecor level={displayLevel} />
+      <IslandParticles isFocusing={isFocusing} />
 
       {animalsToShow.map((animalId, i) => (
         <Animal
@@ -130,12 +181,11 @@ export default function Island({ player, position, isOwn, onClick }: IslandProps
         distanceFactor={12}
         style={{ pointerEvents: 'none', userSelect: 'none', visibility: shopOpen ? 'hidden' : 'visible' }}
       >
-        <div className={`island-label ${isOwn ? 'island-label--own' : ''}`}>
-          {name}{isFocusing ? ' 🔥' : ''}
+        <div className={`island-label ${isOwn ? 'island-label--own' : ''} ${isFocusing ? 'island-label--focusing' : ''}`}>
+          {name}
         </div>
       </Html>
 
-      {/* Invisible click zone */}
       <mesh visible={false} onClick={onClick}>
         <boxGeometry args={[islandSize + 2, 8, islandSize + 2]} />
         <meshBasicMaterial />
