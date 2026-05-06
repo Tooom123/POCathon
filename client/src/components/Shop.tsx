@@ -9,7 +9,14 @@ export default function Shop() {
   const [tab, setTab] = useState<Tab>('animals');
 
   const me = myId ? players[myId] : null;
-  const totalSeconds = me?.totalWorkSeconds ?? 0;
+
+  // Live total focus seconds: committed + current session elapsed (using server timestamp)
+  const committedSeconds = me?.totalWorkSeconds ?? 0;
+  const sessionElapsed = me?.isFocusing && me?.focusStartedAt
+    ? Math.floor((Date.now() - me.focusStartedAt) / 1000)
+    : 0;
+  const totalFocusSeconds = committedSeconds + sessionElapsed;
+
   const islandInfo = getIslandLevel(islandLevel);
   const atCapacity = ownedAnimals.length >= islandInfo.capacity;
 
@@ -17,6 +24,7 @@ export default function Shop() {
     <div className="shop-overlay" onMouseDown={() => setShopOpen(false)}>
       <div className="shop-panel" onMouseDown={(e) => e.stopPropagation()}>
 
+        {/* Header */}
         <div className="shop-header">
           <div className="shop-tabs">
             <button className={`shop-tab ${tab === 'animals' ? 'shop-tab--active' : ''}`} onClick={() => setTab('animals')}>
@@ -30,12 +38,14 @@ export default function Shop() {
           <button className="shop-close" onMouseDown={(e) => { e.stopPropagation(); setShopOpen(false); }}>✕</button>
         </div>
 
+        {/* Capacity bar */}
         <div className="shop-capacity-bar">
           <span>{islandInfo.label}</span>
           <span className={atCapacity ? 'cap-full' : ''}>
             🐾 {ownedAnimals.length} / {islandInfo.capacity}
-            {atCapacity && ' — île pleine ! Agrandissez →'}
+            {atCapacity && ' — île pleine !'}
           </span>
+          <span className="shop-focus-time">⏱ {fmtSec(totalFocusSeconds)} de focus</span>
         </div>
 
         {/* ANIMALS TAB */}
@@ -43,10 +53,16 @@ export default function Shop() {
           <div className="shop-grid">
             {SHOP_ANIMALS.map((animal) => {
               const owned = ownedAnimals.filter((id) => id === animal.id).length;
-              const isUnlocked = totalSeconds >= animal.unlockSeconds;
+              const isUnlocked = totalFocusSeconds >= animal.unlockSeconds;
+              const isLegendary = animal.rarity === 'legendary';
               const canAfford = coins >= animal.cost;
               const blocked = atCapacity;
               const previewSrc = `/previews/animals/animal-${animal.id}.png`;
+
+              // What to show when locked:
+              // - legendary: full mystery (??? + no image)
+              // - others: show name + image with lock overlay
+              const showMystery = !isUnlocked && isLegendary;
 
               return (
                 <div
@@ -56,29 +72,37 @@ export default function Shop() {
                 >
                   <div className="shop-card-rarity-bar" style={{ background: RARITY_COLORS[animal.rarity] }} />
 
-                  {/* Animal preview image */}
+                  {/* Animal image */}
                   <div className="shop-card-img-wrap">
-                    {isUnlocked ? (
-                      <img
-                        src={previewSrc}
-                        alt={animal.name}
-                        className="shop-card-img"
-                        draggable={false}
-                      />
+                    {showMystery ? (
+                      <div className="shop-card-mystery">?</div>
                     ) : (
-                      <div className="shop-card-locked-img">🔒</div>
+                      <>
+                        <img src={previewSrc} alt={animal.name} className="shop-card-img" draggable={false} />
+                        {!isUnlocked && <div className="shop-card-lock-overlay">🔒</div>}
+                      </>
                     )}
+                    {owned > 0 && <div className="shop-card-owned-badge">×{owned}</div>}
                   </div>
 
-                  <div className="shop-card-name">{isUnlocked ? animal.name : '???'}</div>
+                  {/* Name */}
+                  <div className="shop-card-name">{showMystery ? '???' : animal.name}</div>
+
+                  {/* Rarity label */}
                   <div className="shop-card-rarity-label" style={{ color: RARITY_COLORS[animal.rarity] }}>
                     {RARITY_LABELS[animal.rarity]}
                   </div>
-                  {isUnlocked && <div className="shop-card-income">+{formatCoins(animal.incomePerSec)}/s</div>}
-                  {owned > 0 && <div className="shop-card-owned-badge">×{owned}</div>}
 
+                  {/* Income — always show if not legendary mystery */}
+                  {!showMystery && (
+                    <div className="shop-card-income">+{formatCoins(animal.incomePerSec)}/s</div>
+                  )}
+
+                  {/* Action area */}
                   {!isUnlocked ? (
-                    <div className="shop-card-lock-msg">Focus {fmtSec(animal.unlockSeconds - totalSeconds)} de plus</div>
+                    <div className="shop-card-lock-msg">
+                      {showMystery ? '???' : `🔒 Focus encore ${fmtSec(animal.unlockSeconds - totalFocusSeconds)}`}
+                    </div>
                   ) : blocked ? (
                     <div className="shop-card-lock-msg cap-full">Île pleine</div>
                   ) : (
@@ -104,7 +128,7 @@ export default function Shop() {
               <div>
                 <div className="island-current-name">{islandInfo.label} — Niveau {islandLevel}</div>
                 <div className="island-current-stats">
-                  Capacité : {islandInfo.capacity} animaux · Grille {islandInfo.gridN}×{islandInfo.gridN} blocs
+                  Capacité : {islandInfo.capacity} animaux · {islandInfo.gridN}×{islandInfo.gridN} blocs
                 </div>
               </div>
             </div>
@@ -150,6 +174,8 @@ function fmtSec(s: number): string {
   if (s <= 0) return '0s';
   const h = Math.floor(s / 3600);
   const m = Math.floor((s % 3600) / 60);
-  if (h > 0) return `${h}h${m}m`;
-  return `${m}m`;
+  const sec = s % 60;
+  if (h > 0) return `${h}h ${m}m`;
+  if (m > 0) return `${m}m ${sec}s`;
+  return `${sec}s`;
 }

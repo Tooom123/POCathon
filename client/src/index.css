@@ -336,20 +336,14 @@ body {
 .shop-card-emoji  { font-size: 2.4rem; line-height: 1; margin-top: 4px; }
 .shop-card-name   { font-size: 0.8rem; font-weight: 700; color: #c0d8c0; text-align: center; }
 .shop-card-income { font-size: 0.7rem; color: #ffcc44; font-weight: 700; }
-.shop-card-owned  {
-  font-size: 0.7rem;
-  background: #2a4a2a;
-  color: #6aba6a;
-  border-radius: 10px;
-  padding: 1px 8px;
-  font-weight: 700;
-}
+
 .shop-card-rarity-label { font-size: 0.62rem; font-weight: 700; }
 .shop-card-lock-msg { font-size: 0.65rem; color: #4a6a4a; text-align: center; margin-top: 2px; }
 .shop-card-lock-info { font-size: 0.65rem; color: #4a6a4a; text-align: center; }
 
 /* Animal preview image in shop */
 .shop-card-img-wrap {
+  position: relative;
   width: 72px; height: 72px;
   display: flex; align-items: center; justify-content: center;
   margin: 4px 0 2px;
@@ -360,11 +354,42 @@ body {
   image-rendering: pixelated;
   filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));
 }
-.shop-card-locked-img {
-  font-size: 2rem;
-  opacity: 0.4;
+.shop-card--locked .shop-card-img {
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5)) grayscale(80%) brightness(0.5);
+}
+.shop-card-lock-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.4rem;
+  background: rgba(0,0,0,0.25);
+  border-radius: 4px;
+}
+.shop-card-mystery {
+  font-size: 2.2rem;
+  font-weight: 900;
+  color: #3a4a3a;
   display: flex; align-items: center; justify-content: center;
   width: 100%; height: 100%;
+  background: rgba(0,0,0,0.2);
+  border-radius: 4px;
+  letter-spacing: -2px;
+}
+.shop-card-owned-badge {
+  position: absolute;
+  top: -4px; right: -4px;
+  font-size: 0.65rem;
+  background: #2a4a2a;
+  color: #6aba6a;
+  border-radius: 10px;
+  padding: 1px 6px;
+  font-weight: 700;
+  border: 1px solid #3a6a3a;
+}
+.shop-focus-time {
+  font-size: 0.7rem;
+  color: #ffcc44;
+  margin-left: auto;
 }
 
 .shop-btn-buy {
