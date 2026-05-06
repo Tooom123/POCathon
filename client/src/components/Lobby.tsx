@@ -80,11 +80,6 @@ export default function Lobby() {
           </div>
         )}
 
-        <div className="lobby-features">
-          <div className="lobby-feature">🐾 Animaux</div>
-          <div className="lobby-feature">🔥 Focus social</div>
-          <div className="lobby-feature">🪙 Économie</div>
-        </div>
       </div>
 
       <div className="lobby-footer">

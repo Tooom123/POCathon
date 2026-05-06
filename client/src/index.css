@@ -25,17 +25,18 @@ body {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-around;
   overflow: hidden;
   opacity: 0.18;
 }
 
 .lobby-banner {
+  position: absolute;
   width: 100%;
   overflow: hidden;
 }
+.lobby-banner:nth-child(1) { top: 4%; }
+.lobby-banner:nth-child(2) { top: 50%; transform: translateY(-50%); }
+.lobby-banner:nth-child(3) { bottom: 4%; }
 
 .lobby-banner-track {
   display: flex;
