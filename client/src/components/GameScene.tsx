@@ -251,7 +251,7 @@ export default function GameScene() {
       <HUD />
       {shopOpen && <Shop />}
 
-      {visitedPlayer && (
+      {visitedPlayer && visitedPlayer.id !== storeMyId && (
         <VisitOverlay
           player={visitedPlayer}
           onClose={() => { visitIsland(null); setCameraTarget(null); }}
