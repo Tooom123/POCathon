@@ -61,9 +61,11 @@ function FocusSpotlight({ active, color, radius }: { active: boolean; color: str
   const target = useMemo(() => new THREE.Object3D(), []);
   useFrame(() => {
     if (!lightRef.current) return;
-    const goal = active ? 4.0 : 0.0;
+    const goal = active ? 5.0 : 0.0;
     lightRef.current.intensity += (goal - lightRef.current.intensity) * 0.05;
   });
+  // Wider cone: ratio bumped from 1.2 → 2.4 so the lit area covers the whole island
+  // surface and tree canopies, instead of just a small disc in the center.
   return (
     <>
       <primitive object={target} position={[0, 0, 0]} />
@@ -73,10 +75,10 @@ function FocusSpotlight({ active, color, radius }: { active: boolean; color: str
         target={target}
         color={color}
         intensity={0}
-        angle={Math.atan2(radius * 1.2, 14)}
-        penumbra={0.6}
-        distance={20}
-        decay={1.2}
+        angle={Math.atan2(radius * 2.4, 14)}
+        penumbra={0.7}
+        distance={24}
+        decay={1.0}
       />
     </>
   );

@@ -159,11 +159,15 @@ export default function GameScene() {
     ? Math.floor((Date.now() - me.focusStartedAt) / 1000) : 0;
   const totalSec = (me?.totalWorkSeconds ?? 0) + sessionElapsed;
   const nightT = Math.min(totalSec / 3600, 1); // 0 = day, 1 = full night
-  const bgColor = nightT < 0.5
-    ? `rgb(${Math.floor(20 - nightT * 30)}, ${Math.floor(30 - nightT * 40)}, ${Math.floor(60 - nightT * 70)})`
-    : `rgb(${Math.floor(5)}, ${Math.floor(8)}, ${Math.floor(20 + (1 - nightT) * 10)})`;
-  const ambientIntensity = 1.2 - nightT * 0.6;
-  const sunIntensity = 1.5 - nightT * 1.1;
+  // Focus mode darkens the world to make the spotlight pop
+  const focusDim = me?.isFocusing ? 1 : 0;
+  const baseR = nightT < 0.5 ? 20 - nightT * 30 : 5;
+  const baseG = nightT < 0.5 ? 30 - nightT * 40 : 8;
+  const baseB = nightT < 0.5 ? 60 - nightT * 70 : 20 + (1 - nightT) * 10;
+  const dim = 1 - focusDim * 0.7;
+  const bgColor = `rgb(${Math.floor(baseR * dim)}, ${Math.floor(baseG * dim)}, ${Math.floor(baseB * dim)})`;
+  const ambientIntensity = (1.2 - nightT * 0.6) * (1 - focusDim * 0.7);
+  const sunIntensity = (1.5 - nightT * 1.1) * (1 - focusDim * 0.6);
 
   // Track island world positions so CameraController can target them
   const [islandPositions, setIslandPositions] = useState<Record<string, [number, number, number]>>({});
