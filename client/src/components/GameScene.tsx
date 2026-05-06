@@ -198,7 +198,9 @@ export default function GameScene() {
     setCameraTarget(prev => prev === id ? null : id);
   }
 
-  // When focus starts, snap camera to own island so particles/spotlight/rotation kick in.
+  // Focus transitions:
+  //  - start: lerp camera to own island (kicks off particles / spotlight / rotation)
+  //  - stop:  lerp back to global overview
   const wasFocusing = useRef(false);
   useEffect(() => {
     const focusing = !!me?.isFocusing;
@@ -206,6 +208,10 @@ export default function GameScene() {
       setIsSpawn(false);
       setCameraTarget(storeMyId);
       visitIsland(storeMyId);
+    } else if (!focusing && wasFocusing.current) {
+      setIsSpawn(false);
+      setCameraTarget(null);
+      visitIsland(null);
     }
     wasFocusing.current = focusing;
   }, [me?.isFocusing, storeMyId]);
