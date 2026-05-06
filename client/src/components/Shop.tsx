@@ -24,6 +24,9 @@ export default function Shop() {
     <div className="shop-overlay" onMouseDown={() => setShopOpen(false)}>
       <div className="shop-panel" onMouseDown={(e) => e.stopPropagation()}>
 
+        {/* Close button — fixed top-right of panel */}
+        <button className="shop-close" onMouseDown={(e) => { e.stopPropagation(); setShopOpen(false); }}>✕</button>
+
         {/* Header */}
         <div className="shop-header">
           <div className="shop-tabs">
@@ -35,7 +38,6 @@ export default function Shop() {
             </button>
           </div>
           <div className="shop-coins">🪙 {formatCoins(coins)}</div>
-          <button className="shop-close" onMouseDown={(e) => { e.stopPropagation(); setShopOpen(false); }}>✕</button>
         </div>
 
         {/* Capacity bar */}

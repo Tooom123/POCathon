@@ -1,7 +1,7 @@
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls, Stars } from '@react-three/drei';
-import { Suspense, useEffect, useRef } from 'react';
-import { useGameStore } from '../stores/gameStore';
+import { Suspense, useEffect, useRef, useState } from 'react';
+import { useGameStore, PlayerState } from '../stores/gameStore';
 import Island from './Island';
 import HUD from './HUD';
 import Shop from './Shop';
@@ -83,15 +83,7 @@ export default function GameScene() {
       <AnimalManager />
 
       {/* Island visit overlay */}
-      {visitedPlayer && (
-        <div className="visit-overlay">
-          <button className="visit-close" onClick={() => visitIsland(null)}>✕</button>
-          <h2>{visitedPlayer.name}</h2>
-          <p>🕐 {formatTime(visitedPlayer.totalWorkSeconds)}</p>
-          <p>🐾 {visitedPlayer.unlockedAnimals} animaux</p>
-          {visitedPlayer.isFocusing && <p className="visit-focusing">🔥 En session de focus !</p>}
-        </div>
-      )}
+      {visitedPlayer && <VisitOverlay player={visitedPlayer} onClose={() => visitIsland(null)} />}
     </div>
   );
 }
@@ -99,6 +91,41 @@ export default function GameScene() {
 function formatTime(secs: number): string {
   const h = Math.floor(secs / 3600);
   const m = Math.floor((secs % 3600) / 60);
-  if (h > 0) return `${h}h ${m}m`;
-  return `${m}m`;
+  const s = secs % 60;
+  const pad = (n: number) => String(n).padStart(2, '0');
+  if (h > 0) return `${h}:${pad(m)}:${pad(s)}`;
+  return `${pad(m)}:${pad(s)}`;
+}
+
+function VisitOverlay({ player, onClose }: { player: PlayerState; onClose: () => void }) {
+  const [, setTick] = useState(0);
+
+  // Re-render every second to keep elapsed time live
+  useEffect(() => {
+    const id = setInterval(() => setTick(t => t + 1), 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  const sessionElapsed = player.isFocusing && player.focusStartedAt
+    ? Math.floor((Date.now() - player.focusStartedAt) / 1000)
+    : 0;
+  const liveTotal = player.totalWorkSeconds + sessionElapsed;
+
+  return (
+    <div className="visit-overlay">
+      <button className="visit-close" onClick={onClose}>✕</button>
+      <h2>{player.name}</h2>
+      <p>⏱ {formatTime(liveTotal)} de focus</p>
+      <p>🐾 {player.unlockedAnimals} animaux débloqués</p>
+      {player.isFocusing
+        ? <p className="visit-focusing">🔥 En session de focus !</p>
+        : <p style={{ color: '#5a7a6a', fontSize: '0.8rem' }}>Hors focus</p>
+      }
+      {player.isFocusing && sessionElapsed > 0 && (
+        <p style={{ color: '#aaddff', fontSize: '0.8rem' }}>
+          Session : {formatTime(sessionElapsed)}
+        </p>
+      )}
+    </div>
+  );
 }

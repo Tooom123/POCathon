@@ -298,8 +298,21 @@ body {
 }
 .shop-title  { font-size: 1.2rem; font-weight: 800; color: #d0e8d0; flex: 1; }
 .shop-coins  { font-size: 1rem; font-weight: 700; color: #ffcc44; background:#1a1a0a; border:1px solid #3a3a1a; border-radius:4px; padding:4px 12px; }
-.shop-close  { background:none; border:none; color:#4a6a4a; font-size:1.2rem; cursor:pointer; padding:4px 8px; }
+.shop-close {
+  position: absolute;
+  top: 12px;
+  right: 14px;
+  background: none;
+  border: none;
+  color: #4a6a4a;
+  font-size: 1.3rem;
+  cursor: pointer;
+  padding: 4px 8px;
+  line-height: 1;
+  z-index: 10;
+}
 .shop-close:hover { color:#fff; }
+.shop-panel { position: relative; }
 
 .shop-grid {
   display: grid;
