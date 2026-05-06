@@ -634,3 +634,95 @@ body {
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
+
+/* ─── LEADERBOARD ─── */
+.leaderboard {
+  position: fixed;
+  top: 50%;
+  left: 16px;
+  transform: translateY(-50%);
+  width: 210px;
+  background: #0c1410ee;
+  border: 2px solid #1e3a28;
+  border-radius: 10px;
+  padding: 12px 0;
+  z-index: 50;
+  backdrop-filter: blur(6px);
+}
+
+.leaderboard-title {
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: #4a8a5a;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  padding: 0 14px 10px;
+  border-bottom: 1px solid #1a3a22;
+}
+
+.leaderboard-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.leaderboard-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-bottom: 1px solid #111e15;
+  transition: background 0.15s;
+}
+.leaderboard-row:last-child { border-bottom: none; }
+.leaderboard-row--me { background: #0f2018; }
+.leaderboard-row--me .lb-name { color: #ffdd55; }
+.leaderboard-row--focusing { background: #0d1e14; }
+
+.lb-rank {
+  font-size: 1rem;
+  min-width: 22px;
+  text-align: center;
+}
+
+.lb-name {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #c0e8c0;
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.lb-stats {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+.lb-coins {
+  font-size: 0.7rem;
+  color: #ffcc44;
+  font-weight: 700;
+}
+
+.lb-time {
+  font-size: 0.68rem;
+  color: #5a8a6a;
+  font-variant-numeric: tabular-nums;
+}
+
+.lb-focus-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #ff9944;
+  box-shadow: 0 0 4px #ff9944;
+  animation: pulse-dot 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}

@@ -1,29 +1,100 @@
-import { Canvas } from '@react-three/fiber';
+import { Canvas, useThree, useFrame } from '@react-three/fiber';
 import { OrbitControls, Stars } from '@react-three/drei';
 import { Suspense, useEffect, useRef, useState } from 'react';
+import * as THREE from 'three';
 import { useGameStore, PlayerState } from '../stores/gameStore';
 import Island from './Island';
 import HUD from './HUD';
 import Shop from './Shop';
 import ShootingStars from './ShootingStars';
 import AnimalManager from './AnimalManager';
+import Leaderboard from './Leaderboard';
 import socket from '../socket';
 
-function IslandGrid() {
+// Island positions spread wide in space — arranged in a loose arc
+function getIslandPosition(index: number, total: number): [number, number, number] {
+  if (total === 1) return [0, 0, 0];
+  // Spread islands far apart in a slight arc
+  const spacing = 28;
+  const x = (index - (total - 1) / 2) * spacing;
+  // Alternate slight Z offset for depth, avoid pure line
+  const z = (index % 2 === 0 ? 0 : -8) + Math.sin(index * 1.1) * 4;
+  return [x, 0, z];
+}
+
+// Camera animation controller — smoothly moves to target island
+function CameraController({
+  targetId,
+  positions,
+}: {
+  targetId: string | null;
+  positions: Record<string, [number, number, number]>;
+}) {
+  const { camera } = useThree();
+  const controlsRef = useRef<any>(null);
+  const targetPos = useRef(new THREE.Vector3(0, 0, 0));
+  const targetCamPos = useRef(new THREE.Vector3(0, 10, 22));
+  const animating = useRef(false);
+
+  useEffect(() => {
+    if (targetId && positions[targetId]) {
+      const [ix, iy, iz] = positions[targetId];
+      targetPos.current.set(ix, iy, iz);
+      targetCamPos.current.set(ix, iy + 8, iz + 16);
+      animating.current = true;
+    } else {
+      targetPos.current.set(0, 0, 0);
+      targetCamPos.current.set(0, 10, 22);
+      animating.current = true;
+    }
+  }, [targetId]);
+
+  useFrame(() => {
+    if (!animating.current) return;
+    const SPEED = 0.055;
+
+    camera.position.lerp(targetCamPos.current, SPEED);
+
+    if (controlsRef.current) {
+      controlsRef.current.target.lerp(targetPos.current, SPEED);
+      controlsRef.current.update();
+    }
+
+    const camDist = camera.position.distanceTo(targetCamPos.current);
+    if (camDist < 0.05) animating.current = false;
+  });
+
+  return (
+    <OrbitControls
+      ref={controlsRef}
+      enablePan={true}
+      enableZoom={true}
+      minDistance={4}
+      maxDistance={80}
+      maxPolarAngle={Math.PI / 2.1}
+    />
+  );
+}
+
+function IslandGrid({ onIslandClick }: { onIslandClick: (id: string, pos: [number, number, number]) => void }) {
   const { players, myId, visitIsland, visitingIslandId } = useGameStore();
   const playerList = Object.values(players);
 
   return (
     <>
       {playerList.map((player, i) => {
-        const x = (i - (playerList.length - 1) / 2) * 7;
+        const pos = getIslandPosition(i, playerList.length);
         return (
           <Island
             key={player.id}
             player={player}
-            position={[x, 0, 0]}
+            position={pos}
             isOwn={player.id === myId}
-            onClick={() => visitIsland(visitingIslandId === player.id ? null : player.id)}
+            onClick={() => {
+              const next = visitingIslandId === player.id ? null : player.id;
+              visitIsland(next);
+              onIslandClick(player.id, pos);
+            }}
           />
         );
       })}
@@ -53,37 +124,54 @@ export default function GameScene() {
   const { players, visitingIslandId, visitIsland, shopOpen } = useGameStore();
   const visitedPlayer = visitingIslandId ? players[visitingIslandId] : null;
 
+  // Track island world positions so CameraController can target them
+  const [islandPositions, setIslandPositions] = useState<Record<string, [number, number, number]>>({});
+  const [cameraTarget, setCameraTarget] = useState<string | null>(null);
+
+  // Rebuild positions map whenever player list changes
+  const playerList = Object.values(players);
+  useEffect(() => {
+    const pos: Record<string, [number, number, number]> = {};
+    playerList.forEach((p, i) => {
+      pos[p.id] = getIslandPosition(i, playerList.length);
+    });
+    setIslandPositions(pos);
+  }, [JSON.stringify(playerList.map(p => p.id))]);
+
+  function handleIslandClick(id: string, pos: [number, number, number]) {
+    setIslandPositions(prev => ({ ...prev, [id]: pos }));
+    setCameraTarget(prev => prev === id ? null : id);
+  }
+
   return (
     <div style={{ width: '100vw', height: '100vh', position: 'relative', background: '#0a0a1a' }}>
-      <Canvas camera={{ position: [0, 8, 18], fov: 50 }} shadows>
+      <Canvas camera={{ position: [0, 10, 22], fov: 50 }} shadows>
         <Suspense fallback={null}>
-          <Stars radius={80} depth={50} count={3000} factor={4} />
+          <Stars radius={120} depth={60} count={4000} factor={4} />
 
-          {/* Global lighting — bright enough for Kenney Lambert materials */}
           <ambientLight intensity={1.2} color="#cceeff" />
           <directionalLight position={[8, 16, 8]}  intensity={1.5} color="#fff8ee" castShadow />
           <directionalLight position={[-8, 10, -4]} intensity={0.6} color="#aaccff" />
 
-          <IslandGrid />
+          <IslandGrid onIslandClick={handleIslandClick} />
           <FocusTicker />
           <ShootingStars />
 
-          <OrbitControls
-            enablePan={true}
-            enableZoom={true}
-            minDistance={4}
-            maxDistance={50}
-            maxPolarAngle={Math.PI / 2.1}
-          />
+          <CameraController targetId={cameraTarget} positions={islandPositions} />
         </Suspense>
       </Canvas>
 
+      <Leaderboard />
       <HUD />
       {shopOpen && <Shop />}
       <AnimalManager />
 
-      {/* Island visit overlay */}
-      {visitedPlayer && <VisitOverlay player={visitedPlayer} onClose={() => visitIsland(null)} />}
+      {visitedPlayer && (
+        <VisitOverlay
+          player={visitedPlayer}
+          onClose={() => { visitIsland(null); setCameraTarget(null); }}
+        />
+      )}
     </div>
   );
 }
@@ -100,7 +188,6 @@ function formatTime(secs: number): string {
 function VisitOverlay({ player, onClose }: { player: PlayerState; onClose: () => void }) {
   const [, setTick] = useState(0);
 
-  // Re-render every second to keep elapsed time live
   useEffect(() => {
     const id = setInterval(() => setTick(t => t + 1), 1000);
     return () => clearInterval(id);
