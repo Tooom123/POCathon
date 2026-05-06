@@ -22,46 +22,58 @@ function getIslandPosition(index: number, total: number): [number, number, numbe
   return [x, 0, z];
 }
 
-// Camera animation controller — smoothly moves to target island
+// Camera animation controller — snaps or smoothly moves to target island
 function CameraController({
   targetId,
   positions,
+  isSpawn,
 }: {
   targetId: string | null;
   positions: Record<string, [number, number, number]>;
+  isSpawn: boolean;
 }) {
   const { camera } = useThree();
   const controlsRef = useRef<any>(null);
-  const targetPos = useRef(new THREE.Vector3(0, 0, 0));
+  const targetPos    = useRef(new THREE.Vector3(0, 0, 0));
   const targetCamPos = useRef(new THREE.Vector3(0, 10, 22));
-  const animating = useRef(false);
+  const animating    = useRef(false);
+  const snap         = useRef(false);
 
   useEffect(() => {
     if (targetId && positions[targetId]) {
       const [ix, iy, iz] = positions[targetId];
       targetPos.current.set(ix, iy, iz);
       targetCamPos.current.set(ix, iy + 8, iz + 16);
-      animating.current = true;
     } else {
       targetPos.current.set(0, 0, 0);
       targetCamPos.current.set(0, 10, 22);
-      animating.current = true;
     }
+    snap.current = isSpawn;
+    animating.current = true;
   }, [targetId]);
 
   useFrame(() => {
     if (!animating.current) return;
-    const SPEED = 0.055;
 
+    if (snap.current) {
+      // Instant teleport for initial spawn
+      camera.position.copy(targetCamPos.current);
+      if (controlsRef.current) {
+        controlsRef.current.target.copy(targetPos.current);
+        controlsRef.current.update();
+      }
+      snap.current = false;
+      animating.current = false;
+      return;
+    }
+
+    const SPEED = 0.06;
     camera.position.lerp(targetCamPos.current, SPEED);
-
     if (controlsRef.current) {
       controlsRef.current.target.lerp(targetPos.current, SPEED);
       controlsRef.current.update();
     }
-
-    const camDist = camera.position.distanceTo(targetCamPos.current);
-    if (camDist < 0.05) animating.current = false;
+    if (camera.position.distanceTo(targetCamPos.current) < 0.05) animating.current = false;
   });
 
   return (
@@ -124,9 +136,13 @@ export default function GameScene() {
   const { players, visitingIslandId, visitIsland, shopOpen } = useGameStore();
   const visitedPlayer = visitingIslandId ? players[visitingIslandId] : null;
 
+  const { myId: storeMyId } = useGameStore();
+
   // Track island world positions so CameraController can target them
   const [islandPositions, setIslandPositions] = useState<Record<string, [number, number, number]>>({});
   const [cameraTarget, setCameraTarget] = useState<string | null>(null);
+  const [isSpawn, setIsSpawn] = useState(false);
+  const spawnedOnOwn = useRef(false);
 
   // Rebuild positions map whenever player list changes
   const playerList = Object.values(players);
@@ -136,16 +152,24 @@ export default function GameScene() {
       pos[p.id] = getIslandPosition(i, playerList.length);
     });
     setIslandPositions(pos);
+
+    // On first load: snap camera to own island
+    if (!spawnedOnOwn.current && storeMyId && pos[storeMyId]) {
+      spawnedOnOwn.current = true;
+      setIsSpawn(true);
+      setCameraTarget(storeMyId);
+    }
   }, [JSON.stringify(playerList.map(p => p.id))]);
 
   function handleIslandClick(id: string, pos: [number, number, number]) {
     setIslandPositions(prev => ({ ...prev, [id]: pos }));
+    setIsSpawn(false);
     setCameraTarget(prev => prev === id ? null : id);
   }
 
   return (
     <div style={{ width: '100vw', height: '100vh', position: 'relative', background: '#0a0a1a' }}>
-      <Canvas camera={{ position: [0, 10, 22], fov: 50 }} shadows>
+      <Canvas camera={{ position: [0, 10, 22], fov: 50, near: 0.1, far: 1000 }} shadows>
         <Suspense fallback={null}>
           <Stars radius={120} depth={60} count={4000} factor={4} />
 
@@ -157,7 +181,7 @@ export default function GameScene() {
           <FocusTicker />
           <ShootingStars />
 
-          <CameraController targetId={cameraTarget} positions={islandPositions} />
+          <CameraController targetId={cameraTarget} positions={islandPositions} isSpawn={isSpawn} />
         </Suspense>
       </Canvas>
 

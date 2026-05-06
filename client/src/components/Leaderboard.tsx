@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useGameStore } from '../stores/gameStore';
-import { formatCoins } from '../animals';
+import { formatCoins, getTotalIncome } from '../animals';
 
 function formatTime(secs: number): string {
   const h = Math.floor(secs / 3600);
@@ -12,7 +12,7 @@ function formatTime(secs: number): string {
 }
 
 export default function Leaderboard() {
-  const { players, myId, coins } = useGameStore();
+  const { players, myId, ownedAnimals } = useGameStore();
   const [, setTick] = useState(0);
 
   useEffect(() => {
@@ -20,18 +20,20 @@ export default function Leaderboard() {
     return () => clearInterval(id);
   }, []);
 
+  const myIncome = getTotalIncome(ownedAnimals);
+
   const entries = Object.values(players).map(p => {
     const sessionElapsed = p.isFocusing && p.focusStartedAt
       ? Math.floor((Date.now() - p.focusStartedAt) / 1000)
       : 0;
     const liveSeconds = p.totalWorkSeconds + sessionElapsed;
-    // For own player, use live coins from store
-    const playerCoins = p.id === myId ? coins : 0;
-    return { ...p, liveSeconds, playerCoins };
+    // Own player: real income/s. Others: use unlockedAnimals as proxy score
+    const incomePerSec = p.id === myId ? myIncome : p.unlockedAnimals * 0.5;
+    return { ...p, liveSeconds, incomePerSec };
   });
 
-  // Sort by coins desc, then time desc
-  entries.sort((a, b) => b.playerCoins - a.playerCoins || b.liveSeconds - a.liveSeconds);
+  // Sort by income/s desc, then time desc as tiebreaker
+  entries.sort((a, b) => b.incomePerSec - a.incomePerSec || b.liveSeconds - a.liveSeconds);
 
   const medals = ['🥇', '🥈', '🥉'];
 
@@ -42,14 +44,17 @@ export default function Leaderboard() {
         {entries.map((p, i) => (
           <div
             key={p.id}
-            className={`leaderboard-row ${p.id === myId ? 'leaderboard-row--me' : ''} ${p.isFocusing ? 'leaderboard-row--focusing' : ''}`}
+            className={`leaderboard-row ${p.id === myId ? 'leaderboard-row--me' : ''}`}
           >
             <span className="lb-rank">{medals[i] ?? `${i + 1}`}</span>
+            <span className={`lb-online-dot ${p.isFocusing ? 'lb-online-dot--focus' : 'lb-online-dot--idle'}`} />
             <span className="lb-name">{p.name}</span>
             <div className="lb-stats">
-              {p.id === myId && <span className="lb-coins">🪙 {formatCoins(p.playerCoins)}</span>}
-              <span className="lb-time">⏱ {formatTime(p.liveSeconds)}</span>
-              {p.isFocusing && <span className="lb-focus-dot" title="En focus" />}
+              {p.id === myId
+                ? <span className="lb-income">+{formatCoins(p.incomePerSec)}/s</span>
+                : <span className="lb-income lb-income--other">⭐ {p.unlockedAnimals}</span>
+              }
+              <span className="lb-time">{formatTime(p.liveSeconds)}</span>
             </div>
           </div>
         ))}

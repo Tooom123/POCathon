@@ -701,10 +701,13 @@ body {
   gap: 2px;
 }
 
-.lb-coins {
+.lb-income {
   font-size: 0.7rem;
   color: #ffcc44;
   font-weight: 700;
+}
+.lb-income--other {
+  color: #7ab07a;
 }
 
 .lb-time {
@@ -713,13 +716,20 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
-.lb-focus-dot {
-  width: 6px;
-  height: 6px;
+/* Inline online dot — sits just before the name */
+.lb-online-dot {
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
+  flex-shrink: 0;
+}
+.lb-online-dot--focus {
   background: #ff9944;
-  box-shadow: 0 0 4px #ff9944;
+  box-shadow: 0 0 5px #ff9944;
   animation: pulse-dot 1.5s ease-in-out infinite;
+}
+.lb-online-dot--idle {
+  background: #3a5a3a;
 }
 
 @keyframes pulse-dot {
