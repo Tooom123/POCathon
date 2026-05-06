@@ -95,25 +95,18 @@ const ALL_ANIMALS = [
   'lion','monkey','panda','parrot','penguin','pig','polar','tiger',
 ];
 
-const ROW_SIZE = 8;
-const ROWS = [
-  ALL_ANIMALS.slice(0, ROW_SIZE),
-  ALL_ANIMALS.slice(ROW_SIZE, ROW_SIZE * 2),
-  ALL_ANIMALS.slice(ROW_SIZE * 2),
-];
 
 function AnimalBanners() {
   return (
     <div className="lobby-banners" aria-hidden>
-      {ROWS.map((row, i) => {
-        const tripled = [...row, ...row, ...row];
+      {[0, 1, 2].map((i) => {
+        // Repeat enough to fill any screen width — 6 copies of the full 24-animal list
+        const repeated = Array.from({ length: 6 }, () => ALL_ANIMALS).flat();
         const reverse = i % 2 === 1;
-        // 3rd banner starts from right edge like 1st, but scrolls rtl
-        const cls = i === 2 ? 'lobby-banner--rtl lobby-banner--from-right' : `lobby-banner--${reverse ? 'rtl' : 'ltr'}`;
         return (
-          <div key={i} className={`lobby-banner ${cls}`}>
+          <div key={i} className={`lobby-banner lobby-banner--${reverse ? 'rtl' : 'ltr'}`}>
             <div className="lobby-banner-track">
-              {tripled.map((id, j) => (
+              {repeated.map((id, j) => (
                 <img
                   key={j}
                   src={`/previews/animals/animal-${id}.png`}

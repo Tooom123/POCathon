@@ -37,7 +37,6 @@ body {
 .lobby-banner:nth-child(1) { top: 10%; }
 .lobby-banner:nth-child(2) { top: 50%; transform: translateY(-50%); }
 .lobby-banner:nth-child(3) { bottom: 10%; }
-.lobby-banner--from-right { display: flex; justify-content: flex-end; }
 
 .lobby-banner-track {
   display: flex;
@@ -46,10 +45,10 @@ body {
 }
 
 .lobby-banner--ltr .lobby-banner-track {
-  animation: banner-ltr 30s linear infinite;
+  animation: banner-ltr 40s linear infinite;
 }
 .lobby-banner--rtl .lobby-banner-track {
-  animation: banner-rtl 30s linear infinite;
+  animation: banner-rtl 40s linear infinite;
 }
 
 .lobby-banner-img {
@@ -60,12 +59,13 @@ body {
   flex-shrink: 0;
 }
 
+/* 6 copies of 24 animals → animate exactly 1 copy (1/6 = 16.666%) for seamless loop */
 @keyframes banner-ltr {
   0%   { transform: translateX(0); }
-  100% { transform: translateX(-33.333%); }
+  100% { transform: translateX(-16.666%); }
 }
 @keyframes banner-rtl {
-  0%   { transform: translateX(-33.333%); }
+  0%   { transform: translateX(-16.666%); }
   100% { transform: translateX(0); }
 }
 
