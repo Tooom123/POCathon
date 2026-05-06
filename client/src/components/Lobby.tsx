@@ -111,12 +111,12 @@ function AnimalBanners() {
   return (
     <div className="lobby-banners" aria-hidden>
       {ROWS.map((row, i) => {
-        const doubled = [...row, ...row];
+        const tripled = [...row, ...row, ...row];
         const reverse = i % 2 === 1;
         return (
           <div key={i} className={`lobby-banner lobby-banner--${reverse ? 'rtl' : 'ltr'}`}>
             <div className="lobby-banner-track">
-              {doubled.map((id, j) => (
+              {tripled.map((id, j) => (
                 <img
                   key={j}
                   src={`/previews/animals/animal-${id}.png`}
