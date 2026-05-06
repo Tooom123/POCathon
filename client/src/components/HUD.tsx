@@ -18,6 +18,42 @@ export default function HUD() {
 
   const sessionStart = useRef<number | null>(null);
   const [elapsed, setElapsed] = useState(0);
+  const [muted, setMuted] = useState(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  // Init audio once
+  useEffect(() => {
+    const audio = new Audio('/sounds/focus-music.wav');
+    audio.loop = true;
+    audio.volume = 0;
+    audioRef.current = audio;
+    return () => { audio.pause(); };
+  }, []);
+
+  // Fade in/out on focus toggle
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    if (me?.isFocusing && !muted) {
+      audio.play().catch(() => {});
+      fadeTo(audio, 0.5, 2000);
+    } else {
+      fadeTo(audio, 0, 1500, () => audio.pause());
+    }
+  }, [me?.isFocusing, muted]);
+
+  function toggleMute() {
+    const audio = audioRef.current;
+    if (!audio) return;
+    const next = !muted;
+    setMuted(next);
+    if (next) {
+      fadeTo(audio, 0, 800, () => audio.pause());
+    } else if (me?.isFocusing) {
+      audio.play().catch(() => {});
+      fadeTo(audio, 0.5, 800);
+    }
+  }
 
   // Passive income every 250ms
   useEffect(() => {
@@ -105,6 +141,10 @@ export default function HUD() {
           🐾 Shop
         </button>
 
+        <button className="mute-btn" onClick={toggleMute} title={muted ? 'Activer la musique' : 'Couper la musique'}>
+          {muted ? '🔇' : '🎵'}
+        </button>
+
         <button
           className="reset-btn"
           onClick={() => { if (confirm('Réinitialiser l\'île et tous les animaux ?')) resetIsland(); }}
@@ -119,6 +159,22 @@ export default function HUD() {
       </div>
     </div>
   );
+}
+
+function fadeTo(audio: HTMLAudioElement, target: number, ms: number, onDone?: () => void) {
+  const steps = 20;
+  const interval = ms / steps;
+  const delta = (target - audio.volume) / steps;
+  let i = 0;
+  const id = setInterval(() => {
+    i++;
+    audio.volume = Math.min(1, Math.max(0, audio.volume + delta));
+    if (i >= steps) {
+      clearInterval(id);
+      audio.volume = target;
+      onDone?.();
+    }
+  }, interval);
 }
 
 function CopyCodeBtn({ code }: { code: string | null }) {

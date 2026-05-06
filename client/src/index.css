@@ -226,6 +226,19 @@ body {
   image-rendering: pixelated;
   text-shadow: 2px 2px 0 #0a3a1a, -1px -1px 0 #0a3a1a;
 }
+.mute-btn {
+  background: none;
+  border: 1px solid #2a4a2a;
+  border-radius: 6px;
+  color: #4a8a5a;
+  font-size: 1rem;
+  cursor: pointer;
+  padding: 4px 8px;
+  pointer-events: all;
+  transition: border-color 0.15s;
+}
+.mute-btn:hover { border-color: #4aac58; }
+
 .hud-copy-btn {
   background: none;
   border: 1px solid #2a4a2a;
