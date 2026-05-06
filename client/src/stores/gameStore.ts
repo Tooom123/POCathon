@@ -81,8 +81,14 @@ export const useGameStore = create<GameStore>((set, get) => ({
   visitIsland: (id) => set({ visitingIslandId: id }),
 
   tickCoins: () => {
-    const { lastTickTime, ownedAnimals, coins, islandLevel } = get();
+    const { lastTickTime, ownedAnimals, coins, islandLevel, players, myId } = get();
     const now = Date.now();
+    const me = myId ? players[myId] : null;
+    // Income only accumulates during an active focus session
+    if (!me?.isFocusing) {
+      set({ lastTickTime: now }); // reset to avoid burst when focus starts
+      return;
+    }
     const dt = Math.min((now - lastTickTime) / 1000, 5);
     const income = getTotalIncome(ownedAnimals);
     const next = coins + income * dt;
