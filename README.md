@@ -1,22 +1,15 @@
 <p align="center">
-  <img src="client/public/previews/animals/animal-koala.png" alt="koala" width="160" />
+  <img src="client/public/previews/animals/animal-deer.png" alt="deer" width="120" />
+  <img src="client/public/previews/animals/animal-koala.png" alt="koala" width="120" />
+  <img src="client/public/previews/animals/animal-fox.png" alt="fox" width="120" />
 </p>
 <h1 align="center">Focus Island</h1>
 
-> **Hackathon POC — Tom & Mehdi, 06/05/2026**
+> **Hackathon POC — Tom Angles, 06/05/2026**
 
 FocusIsland est un jeu de productivité multijoueur : chaque session de travail détectée sur votre machine se traduit en pièces, en animaux et en décorations sur votre île virtuelle. Rejoignez un lobby avec vos collègues ou amis, restez focus toute la journée, et comparez vos îles en fin de session. Le meilleur bosseur a la plus belle île.
 
 L'idée n'est pas de passer du temps dans l'interface — c'est de travailler, de laisser le tracker faire son boulot en arrière-plan, et de revenir le soir pour voir qui a le mieux utilisé sa journée.
-
----
-
-## Équipe
-
-| Rôle | Personne |
-|------|----------|
-| Frontend (client + game server) | Tom Angles |
-| Backend (API, pipeline, auth) | Mehdi Sellali |
 
 ---
 
