@@ -125,12 +125,17 @@ export default function Shop() {
                   ) : blocked ? (
                     <div className="shop-card-lock-msg cap-full">Île pleine</div>
                   ) : (
-                    <button
-                      className={`shop-btn-buy ${!canAfford ? 'shop-btn-buy--disabled' : ''} ${shakeId === animal.id ? 'shake' : ''}`}
-                      onClick={() => tryBuyAnimal(animal.id, animal.cost)}
-                    >
-                      🪙 {formatCoins(animal.cost)}
-                    </button>
+                    <>
+                      <button
+                        className={`shop-btn-buy ${!canAfford ? 'shop-btn-buy--disabled' : ''} ${shakeId === animal.id ? 'shake' : ''}`}
+                        onClick={() => tryBuyAnimal(animal.id, animal.cost)}
+                      >
+                        🪙 {formatCoins(animal.cost)}
+                      </button>
+                      {!canAfford && shakeId === animal.id && (
+                        <div className="shop-card-error">Pas assez de coins</div>
+                      )}
+                    </>
                   )}
                 </div>
               );
@@ -167,12 +172,17 @@ export default function Shop() {
                     {isDone ? (
                       <div className="upgrade-done">✓ Débloqué</div>
                     ) : isNext ? (
-                      <button
-                        className={`shop-btn-buy upgrade-btn ${!canAfford ? 'shop-btn-buy--disabled' : ''} ${shakeId === `island-${lvl.level}` ? 'shake' : ''}`}
-                        onClick={() => tryUpgradeIsland(lvl.level)}
-                      >
-                        🪙 {formatCoins(prevLevel.upgradeCost)}
-                      </button>
+                      <>
+                        <button
+                          className={`shop-btn-buy upgrade-btn ${!canAfford ? 'shop-btn-buy--disabled' : ''} ${shakeId === `island-${lvl.level}` ? 'shake' : ''}`}
+                          onClick={() => tryUpgradeIsland(lvl.level)}
+                        >
+                          🪙 {formatCoins(prevLevel.upgradeCost)}
+                        </button>
+                        {!canAfford && shakeId === `island-${lvl.level}` && (
+                          <div className="shop-card-error">Pas assez de coins</div>
+                        )}
+                      </>
                     ) : (
                       <div className="upgrade-locked-msg">Après niv. {lvl.level - 1}</div>
                     )}

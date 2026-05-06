@@ -9,6 +9,7 @@ import Shop from './Shop';
 import ShootingStars from './ShootingStars';
 import AnimalManager from './AnimalManager';
 import Leaderboard from './Leaderboard';
+import Minimap from './Minimap';
 import socket from '../socket';
 
 // Island positions spread wide in space — arranged in a loose arc
@@ -199,6 +200,7 @@ export default function GameScene() {
 
       <LoadingOverlay />
       <Leaderboard />
+      <Minimap />
       <HUD />
       {shopOpen && <Shop />}
       <AnimalManager />
